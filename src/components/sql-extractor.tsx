@@ -6,6 +6,9 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { useToast } from '@/hooks/use-toast';
 import type { WorkerMessage } from '@/workers/sql-extractor.worker';
+import { Pagination } from '@/components/pagination'; // Import the new component
+
+const WORDS_PER_PAGE = 100;
 
 export function SqlExtractor() {
   const { toast } = useToast();
@@ -18,6 +21,10 @@ export function SqlExtractor() {
   const [message, setMessage] = useState({ text: 'الرجاء اختيار ملف SQL ثم الضغط على زر بدء العملية', type: 'info' });
   const [stats, setStats] = useState({ totalWords: 0, uniqueWords: 0, processingTime: 0 });
   const [savedWords, setSavedWords] = useState<string[]>([]);
+  
+  const [currentPageExtracted, setCurrentPageExtracted] = useState(1);
+  const [currentPageSaved, setCurrentPageSaved] = useState(1);
+
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const workerRef = useRef<Worker>();
@@ -66,6 +73,7 @@ export function SqlExtractor() {
           const { words, stats } = payload;
           setExtractedWords(words);
           setStats(stats);
+          setCurrentPageExtracted(1); // Reset to first page
           saveWordsToLocalStorage(words);
           showMessage(`تم استخراج وحفظ ${words.length} كلمة إنجليزية بنجاح!`, 'success');
           setProcessing(false);
@@ -155,11 +163,12 @@ export function SqlExtractor() {
   };
   
   const exportResults = () => {
-    if (extractedWords.length === 0) {
+    const wordsToExport = extractedWords.length > 0 ? extractedWords : savedWords;
+    if (wordsToExport.length === 0) {
       toast({ title: 'لا توجد كلمات لتصديرها', variant: 'destructive' });
       return;
     }
-    const content = extractedWords.join('\n');
+    const content = wordsToExport.join('\n');
     const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -203,6 +212,18 @@ export function SqlExtractor() {
         return 'fa-info-circle';
     }
   };
+  
+  // Pagination logic
+  const paginatedExtractedWords = extractedWords.slice(
+    (currentPageExtracted - 1) * WORDS_PER_PAGE,
+    currentPageExtracted * WORDS_PER_PAGE
+  );
+
+  const paginatedSavedWords = savedWords.slice(
+    (currentPageSaved - 1) * WORDS_PER_PAGE,
+    currentPageSaved * WORDS_PER_PAGE
+  );
+
 
   return (
     <div className="space-y-8">
@@ -285,7 +306,7 @@ export function SqlExtractor() {
         <CardHeader>
           <CardTitle className="flex items-center gap-3 text-2xl font-headline text-primary">
             <i className="fas fa-file-alt"></i>
-            <span>النتائج المستخرجة</span>
+            <span>النتائج المستخرجة (من آخر ملف)</span>
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -297,15 +318,22 @@ export function SqlExtractor() {
               <i className="fas fa-trash-alt mr-2"></i> مسح النتائج
             </Button>
           </div>
-          <div className="max-h-96 overflow-y-auto p-4 border rounded-lg bg-muted/50">
+          <div className="min-h-[300px]">
             {extractedWords.length > 0 ? (
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
-                {extractedWords.map((word, index) => (
-                  <div key={index} className="bg-background p-2 rounded text-center shadow">
-                    {word}
-                  </div>
-                ))}
-              </div>
+              <>
+                <div className="p-4 border rounded-lg bg-muted/50 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+                  {paginatedExtractedWords.map((word, index) => (
+                    <div key={index} className="bg-background p-2 rounded text-center shadow">
+                      {word}
+                    </div>
+                  ))}
+                </div>
+                 <Pagination
+                  currentPage={currentPageExtracted}
+                  totalPages={Math.ceil(extractedWords.length / WORDS_PER_PAGE)}
+                  onPageChange={setCurrentPageExtracted}
+                />
+              </>
             ) : (
               <p className="text-muted-foreground text-center py-8">لم يتم استخراج أي كلمات بعد.</p>
             )}
@@ -317,19 +345,26 @@ export function SqlExtractor() {
         <CardHeader>
           <CardTitle className="flex items-center gap-3 text-2xl font-headline text-primary">
             <i className="fas fa-archive"></i>
-            <span>الكلمات المحفوظة سابقاً</span>
+            <span>جميع الكلمات المحفوظة ({savedWords.length})</span>
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="max-h-72 overflow-y-auto p-4 border rounded-lg bg-muted/50">
+          <div className="min-h-[300px]">
              {savedWords.length > 0 ? (
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
-                {savedWords.map((word, index) => (
-                  <div key={index} className="bg-background p-2 rounded text-center shadow">
-                    {word}
-                  </div>
-                ))}
-              </div>
+              <>
+                <div className="p-4 border rounded-lg bg-muted/50 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+                  {paginatedSavedWords.map((word, index) => (
+                    <div key={index} className="bg-background p-2 rounded text-center shadow">
+                      {word}
+                    </div>
+                  ))}
+                </div>
+                 <Pagination
+                  currentPage={currentPageSaved}
+                  totalPages={Math.ceil(savedWords.length / WORDS_PER_PAGE)}
+                  onPageChange={setCurrentPageSaved}
+                />
+              </>
             ) : (
               <p className="text-muted-foreground text-center py-8">لا توجد كلمات محفوظة.</p>
             )}
