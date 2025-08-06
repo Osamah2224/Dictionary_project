@@ -11,7 +11,6 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Form, FormControl, FormField, FormItem, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useToast } from '@/hooks/use-toast';
 import Link from 'next/link';
@@ -19,7 +18,6 @@ import { Separator } from './ui/separator';
 
 const FormSchema = z.object({
   query: z.string().min(1, 'الرجاء إدخال كلمة أو عبارة.'),
-  targetLanguage: z.string({ required_error: 'الرجاء اختيار لغة.' }),
 });
 
 type FormValues = z.infer<typeof FormSchema>;
@@ -106,9 +104,6 @@ export function SmartDictionary() {
              </Link>
           </Button>
         </div>
-        <CardDescription className="text-lg text-muted-foreground pt-2">
-          أدخل كلمة أو عبارة واحصل على تحليل شامل لها باللغتين العربية والإنجليزية.
-        </CardDescription>
       </CardHeader>
       <CardContent className="p-6">
         <Form {...form}>
@@ -125,26 +120,6 @@ export function SmartDictionary() {
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
                       </div>
                     </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="targetLanguage"
-                render={({ field }) => (
-                  <FormItem className="min-w-[180px]">
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
-                      <FormControl>
-                        <SelectTrigger className="py-6 text-lg">
-                          <SelectValue placeholder="اختر اللغة" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value="English" className="text-lg">الإنجليزية</SelectItem>
-                        <SelectItem value="Arabic" className="text-lg">العربية</SelectItem>
-                      </SelectContent>
-                    </Select>
                     <FormMessage />
                   </FormItem>
                 )}
