@@ -1,9 +1,9 @@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { SmartDictionary } from '@/components/smart-dictionary';
 import { SmartTranslation } from '@/components/smart-translation';
-import { AboutMe } from '@/components/about-me';
+import { SmartTeacher } from '@/components/smart-teacher';
 import { ThemeToggle } from '@/components/theme-toggle';
-import { Languages, User, BookMarked } from 'lucide-react';
+import { Languages, GraduationCap, BookMarked } from 'lucide-react';
 import Link from 'next/link';
 
 export default function Home() {
@@ -27,9 +27,9 @@ export default function Home() {
                 <Languages className="ml-2 h-5 w-5" />
                 الترجمة الذكية
               </TabsTrigger>
-              <TabsTrigger value="about" className="text-lg md:text-xl py-3 px-6 rounded-lg shadow-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-2xl transition-all duration-300 transform hover:-translate-y-1">
-                <User className="ml-2 h-5 w-5" />
-                أ. اسامة العُمري
+              <TabsTrigger value="smart-teacher" className="text-lg md:text-xl py-3 px-6 rounded-lg shadow-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-2xl transition-all duration-300 transform hover:-translate-y-1">
+                <GraduationCap className="ml-2 h-5 w-5" />
+                المعلم الذكي
               </TabsTrigger>
             </TabsList>
             <TabsContent value="smart-dictionary" className="mt-8">
@@ -38,8 +38,8 @@ export default function Home() {
             <TabsContent value="smart-translation" className="mt-8">
               <SmartTranslation />
             </TabsContent>
-            <TabsContent value="about" className="mt-8">
-              <AboutMe />
+            <TabsContent value="smart-teacher" className="mt-8">
+              <SmartTeacher />
             </TabsContent>
           </Tabs>
         </main>
