@@ -77,8 +77,7 @@ self.onmessage = async (event: MessageEvent<WorkerCommand>) => {
 
   switch (command) {
     case 'start':
-      if (isStopped) { // Resume logic
-          isStopped = false;
+      if (isPaused) { // Resume logic
           isPaused = false;
           processWords();
       } else { // Start new job
@@ -86,7 +85,7 @@ self.onmessage = async (event: MessageEvent<WorkerCommand>) => {
           isPaused = false;
           const { wordsToProcess, processedDictionary } = event.data;
           const processedKeys = Object.keys(processedDictionary).map(k => k.toLowerCase());
-          wordsQueue = wordsToProcess.filter(word => !processedKeys.includes(word.toLowerCase()));
+          wordsQueue = wordsToProcess.filter(word => !processedKeys.includes(word.toLowerCase())).sort();
           currentIndex = 0;
           processWords();
       }
