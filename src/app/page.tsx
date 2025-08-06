@@ -12,7 +12,7 @@ export default function Home() {
       <div className="w-full max-w-6xl mx-auto">
         <header className="w-full flex justify-between items-center py-6 mb-8 border-b-2 border-primary/20">
           <h1 className="text-3xl md:text-4xl font-headline font-bold text-primary">
-            المترجم الذكي
+            أ. أسامة العُمري
           </h1>
           <ThemeToggle />
         </header>

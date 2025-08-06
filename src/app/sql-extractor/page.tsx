@@ -10,7 +10,7 @@ export default function SqlExtractorPage() {
       <div className="w-full max-w-6xl mx-auto">
         <header className="w-full flex justify-between items-center py-6 mb-8 border-b-2 border-primary/20">
          <Link href="/" className="text-3xl md:text-4xl font-headline font-bold text-primary hover:opacity-80 transition-opacity">
-            المترجم الذكي
+            أ. أسامة العُمري
           </Link>
           <div className="flex items-center gap-4">
             <ThemeToggle />

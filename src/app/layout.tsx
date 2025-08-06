@@ -3,8 +3,8 @@ import './globals.css';
 import { Toaster } from '@/components/ui/toaster';
 
 export const metadata: Metadata = {
-  title: 'المترجم الذكي',
-  description: 'تطبيق ترجمة ذكي بواسطة أ. اسامة العُمري',
+  title: 'أ. أسامة العُمري',
+  description: 'تطبيق الذكاء الاصطناعي التعليمي بواسطة أ. أسامة العُمري',
 };
 
 export default function RootLayout({
