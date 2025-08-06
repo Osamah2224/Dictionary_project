@@ -106,7 +106,7 @@ export function SmartTranslation() {
                 </FormItem>
               )}
             />
-            <Button type="submit" disabled={isLoading} className="w-full bg-accent hover:bg-accent/90 text-accent-foreground py-7 text-xl rounded-lg shadow-lg transform hover:scale-105 transition-transform duration-300">
+            <Button type="submit" disabled={isLoading} className="w-full bg-primary hover:bg-primary/90 text-primary-foreground py-7 text-xl rounded-lg shadow-lg transform hover:scale-105 transition-transform duration-300">
               {isLoading && <Loader2 className="h-6 w-6 animate-spin" />}
               <span>ترجم النص</span>
             </Button>

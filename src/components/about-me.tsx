@@ -21,11 +21,11 @@ export function AboutMe() {
         </p>
         <div className="flex flex-col md:flex-row justify-center items-center gap-8 pt-6">
           <div className="flex items-center gap-3 text-lg">
-            <Briefcase className="h-6 w-6 text-accent" />
+            <Briefcase className="h-6 w-6 text-primary" />
             <span>خبير لغويات حاسوبية</span>
           </div>
           <div className="flex items-center gap-3 text-lg">
-            <Mail className="h-6 w-6 text-accent" />
+            <Mail className="h-6 w-6 text-primary" />
             <span>osama.alomari@example.com</span>
           </div>
         </div>
