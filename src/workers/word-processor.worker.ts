@@ -79,7 +79,7 @@ self.onmessage = async (event: MessageEvent<WorkerCommand>) => {
     case 'start':
       if (isPaused) { // Resume logic
           isPaused = false;
-          processWords();
+          // processWords() will be unblocked and continue
       } else { // Start new job
           isStopped = false;
           isPaused = false;
@@ -99,3 +99,5 @@ self.onmessage = async (event: MessageEvent<WorkerCommand>) => {
       break;
   }
 };
+
+    

@@ -204,17 +204,17 @@ export function SmartDictionary() {
                   </DialogDescription>
                 </DialogHeader>
                 <div className='space-y-4 py-4'>
-                  <div className='flex items-center justify-between'>
-                    <span className='font-medium'>الكلمات المعالجة:</span>
-                    <span className='font-bold text-primary'>{processedCount} / {totalWordsToProcess}</span>
-                  </div>
-                  <Progress value={progress} />
                    <p className='text-sm text-center text-muted-foreground'>
                     {processingStatus === 'running' && 'جاري المعالجة...'}
                     {processingStatus === 'paused' && 'متوقف مؤقتاً.'}
                     {processingStatus === 'stopped' && 'تم الإيقاف.'}
                     {processingStatus === 'idle' && 'في وضع الاستعداد.'}
                   </p>
+                  <div className='flex items-center justify-between'>
+                    <span className='font-medium'>الكلمات المعالجة:</span>
+                    <span className='font-bold text-primary'>{processedCount} / {totalWordsToProcess}</span>
+                  </div>
+                  <Progress value={progress} />
                 </div>
                 <DialogFooter className='gap-2'>
                   <Button onClick={stopProcessing} variant="destructive" disabled={processingStatus !== 'running' && processingStatus !== 'paused'}>
@@ -400,3 +400,5 @@ export function SmartDictionary() {
   </>
   );
 }
+
+    
