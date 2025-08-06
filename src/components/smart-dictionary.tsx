@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useForm, type SubmitHandler } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { BookMarked, Loader2, Database, Search } from 'lucide-react';
+import { BookMarked, Loader2, Database, Search, Type, List, Repeat, ChevronsUpDown } from 'lucide-react';
 
 import { smartDictionary, type SmartDictionaryInput } from '@/ai/flows/smart-dictionary';
 import { Button } from '@/components/ui/button';
@@ -12,8 +12,10 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Form, FormControl, FormField, FormItem, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useToast } from '@/hooks/use-toast';
 import Link from 'next/link';
+import { Separator } from './ui/separator';
 
 const FormSchema = z.object({
   query: z.string().min(1, 'الرجاء إدخال كلمة أو عبارة.'),
@@ -22,9 +24,16 @@ const FormSchema = z.object({
 
 type FormValues = z.infer<typeof FormSchema>;
 
+// This will be expanded in the next steps to hold the detailed data.
 type ResultState = {
-  translatedDefinition: string;
-  exampleUsage: string;
+  word: string;
+  arabicMeaning: string;
+  definition: string;
+  partOfSpeech: string;
+  derivatives: { word: string; partOfSpeech: string; meaning: string }[];
+  conjugation: { tense: string; form: string; meaning: string }[];
+  synonyms: { word: string; meaning: string }[];
+  antonyms: { word: string; meaning: string }[];
 } | null;
 
 export function SmartDictionary() {
@@ -43,8 +52,35 @@ export function SmartDictionary() {
     setIsLoading(true);
     setResult(null);
     try {
-      const dictionaryResult = await smartDictionary(data as SmartDictionaryInput);
-      setResult(dictionaryResult);
+      // For now, we'll use placeholder data to show the new UI.
+      // We will replace this with a real API call later.
+      setTimeout(() => {
+        setResult({
+          word: 'Exacerbate',
+          arabicMeaning: 'يفاقم / يفاقم',
+          definition: 'To make (a problem, bad situation, or negative feeling) worse.',
+          partOfSpeech: 'Verb',
+          derivatives: [
+            { word: 'Exacerbation', partOfSpeech: 'Noun', meaning: 'تفاقم' },
+            { word: 'Exacerbatingly', partOfSpeech: 'Adverb', meaning: 'بشكل متفاقم' },
+          ],
+          conjugation: [
+            { tense: 'Infinitive', form: 'To exacerbate', meaning: 'أن يفاقم' },
+            { tense: 'Past Tense', form: 'Exacerbated', meaning: 'فاقم' },
+            { tense: 'Past Participle', form: 'Exacerbated', meaning: 'متفاقم' },
+          ],
+          synonyms: [
+            { word: 'Aggravate', meaning: 'يفاقم' },
+            { word: 'Worsen', meaning: 'يزيد سوءًا' },
+          ],
+          antonyms: [
+            { word: 'Alleviate', meaning: 'يخفف' },
+            { word: 'Soothe', meaning: 'يهدئ' },
+          ],
+        });
+        setIsLoading(false);
+      }, 1500);
+
     } catch (error) {
       console.error('Smart Dictionary Error:', error);
       toast({
@@ -52,7 +88,6 @@ export function SmartDictionary() {
         title: 'حدث خطأ',
         description: 'فشل في جلب التعريف. الرجاء المحاولة مرة أخرى.',
       });
-    } finally {
       setIsLoading(false);
     }
   };
@@ -72,7 +107,7 @@ export function SmartDictionary() {
           </Button>
         </div>
         <CardDescription className="text-lg text-muted-foreground pt-2">
-          أدخل كلمة أو عبارة واحصل على تعريفها المترجم ومثال على استخدامها في السياق.
+          أدخل كلمة أو عبارة واحصل على تحليل شامل لها باللغتين العربية والإنجليزية.
         </CardDescription>
       </CardHeader>
       <CardContent className="p-6">
@@ -106,11 +141,8 @@ export function SmartDictionary() {
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        <SelectItem value="Arabic" className="text-lg">العربية</SelectItem>
                         <SelectItem value="English" className="text-lg">الإنجليزية</SelectItem>
-                        <SelectItem value="French" className="text-lg">الفرنسية</SelectItem>
-                        <SelectItem value="Spanish" className="text-lg">الإسبانية</SelectItem>
-                        <SelectItem value="German" className="text-lg">الألمانية</SelectItem>
+                        <SelectItem value="Arabic" className="text-lg">العربية</SelectItem>
                       </SelectContent>
                     </Select>
                     <FormMessage />
@@ -132,26 +164,146 @@ export function SmartDictionary() {
         )}
 
         {result && (
-          <div className="mt-8 border-t border-primary/20 pt-6 animate-in fade-in duration-500">
-             <h3 className="text-2xl font-bold text-primary mb-4">النتائج:</h3>
-             <div className="space-y-6">
-                <Card className="bg-background/50 rounded-lg">
-                  <CardHeader>
-                    <CardTitle className="text-xl">التعريف المترجم</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <p className="text-lg leading-relaxed">{result.translatedDefinition}</p>
-                  </CardContent>
-                </Card>
-                <Card className="bg-background/50 rounded-lg">
-                  <CardHeader>
-                    <CardTitle className="text-xl">مثال على الاستخدام</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <p className="italic text-lg leading-relaxed">{result.exampleUsage}</p>
-                  </CardContent>
-                </Card>
-             </div>
+          <div className="mt-8 border-t-2 border-primary/10 pt-6 animate-in fade-in duration-500 space-y-8">
+            {/* Word and Meaning */}
+            <div className="text-center">
+              <h2 className="text-5xl font-bold text-primary">{result.word}</h2>
+              <p className="text-2xl text-muted-foreground mt-2">{result.arabicMeaning}</p>
+            </div>
+            
+            <Separator />
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                {/* Left Column */}
+                <div className="space-y-8">
+                    {/* Definition */}
+                    <Card>
+                        <CardHeader>
+                            <CardTitle className="flex items-center gap-2 text-xl">
+                                <BookMarked className="text-primary" />
+                                <span>Definition / التعريف</span>
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            <p className="text-lg leading-relaxed">{result.definition}</p>
+                        </CardContent>
+                    </Card>
+
+                    {/* Part of Speech */}
+                    <Card>
+                        <CardHeader>
+                            <CardTitle className="flex items-center gap-2 text-xl">
+                                <Type className="text-primary" />
+                                <span>Part of Speech / التصنيف</span>
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            <p className="text-lg">{result.partOfSpeech}</p>
+                        </CardContent>
+                    </Card>
+                    
+                    {/* Derivatives */}
+                    <Card>
+                        <CardHeader>
+                            <CardTitle className="flex items-center gap-2 text-xl">
+                                <List className="text-primary" />
+                                <span>Derivatives / المشتقات</span>
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            <Table>
+                                <TableHeader>
+                                    <TableRow>
+                                        <TableHead>Word</TableHead>
+                                        <TableHead>Type</TableHead>
+                                        <TableHead>Arabic Meaning</TableHead>
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    {result.derivatives.map((item, index) => (
+                                        <TableRow key={index}>
+                                            <TableCell>{item.word}</TableCell>
+                                            <TableCell>{item.partOfSpeech}</TableCell>
+                                            <TableCell>{item.meaning}</TableCell>
+                                        </TableRow>
+                                    ))}
+                                </TableBody>
+                            </Table>
+                        </CardContent>
+                    </Card>
+                </div>
+
+                {/* Right Column */}
+                <div className="space-y-8">
+                    {/* Conjugation */}
+                    <Card>
+                        <CardHeader>
+                            <CardTitle className="flex items-center gap-2 text-xl">
+                                <Repeat className="text-primary" />
+                                <span>Conjugation / تصريف الفعل</span>
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            <Table>
+                                <TableHeader>
+                                    <TableRow>
+                                        <TableHead>Tense</TableHead>
+                                        <TableHead>Form</TableHead>
+                                        <TableHead>Arabic Meaning</TableHead>
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    {result.conjugation.map((item, index) => (
+                                        <TableRow key={index}>
+                                            <TableCell>{item.tense}</TableCell>
+                                            <TableCell>{item.form}</TableCell>
+                                            <TableCell>{item.meaning}</TableCell>
+                                        </TableRow>
+                                    ))}
+                                </TableBody>
+                            </Table>
+                        </CardContent>
+                    </Card>
+
+                    {/* Synonyms & Antonyms */}
+                     <Card>
+                        <CardHeader>
+                            <CardTitle className="flex items-center gap-2 text-xl">
+                                <ChevronsUpDown className="text-primary" />
+                                <span>Synonyms & Antonyms / المرادفات والتضاد</span>
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                             <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <h4 className="font-semibold text-lg mb-2 text-green-600">Synonyms</h4>
+                                    <Table>
+                                        <TableBody>
+                                            {result.synonyms.map((item, index) => (
+                                                <TableRow key={index}>
+                                                    <TableCell className="p-2">{item.word}</TableCell>
+                                                </TableRow>
+                                            ))}
+                                        </TableBody>
+                                    </Table>
+                                </div>
+                                <div>
+                                    <h4 className="font-semibold text-lg mb-2 text-red-600">Antonyms</h4>
+                                    <Table>
+                                        <TableBody>
+                                            {result.antonyms.map((item, index) => (
+                                                <TableRow key={index}>
+                                                    <TableCell className="p-2">{item.word}</TableCell>
+                                                </TableRow>
+                                            ))}
+                                        </TableBody>
+                                    </Table>
+                                </div>
+                            </div>
+                        </CardContent>
+                    </Card>
+                </div>
+            </div>
           </div>
         )}
       </CardContent>
