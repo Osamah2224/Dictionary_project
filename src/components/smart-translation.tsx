@@ -1,10 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useForm, type SubmitHandler } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Languages, Loader2, Clipboard, Check } from 'lucide-react';
+import { Languages, Loader2, Clipboard, Check, History } from 'lucide-react';
 
 import { smartTranslation, type SmartTranslationInput } from '@/ai/flows/smart-translation';
 import { Button } from '@/components/ui/button';
@@ -22,11 +22,36 @@ type FormValues = z.infer<typeof FormSchema>;
 // Function to detect if the text is primarily Arabic
 const isArabic = (text: string) => /[\u0600-\u06FF]/.test(text);
 
+const TRANSLATION_CACHE_KEY = 'smartTranslationsCache';
+
 export function SmartTranslation() {
   const [translation, setTranslation] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isCopied, setIsCopied] = useState(false);
   const { toast } = useToast();
+  const [translationsCache, setTranslationsCache] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    try {
+      const cachedData = localStorage.getItem(TRANSLATION_CACHE_KEY);
+      if (cachedData) {
+        setTranslationsCache(JSON.parse(cachedData));
+      }
+    } catch (error) {
+      console.error('Failed to load translations cache:', error);
+    }
+  }, []);
+
+  const saveTranslationToCache = (original: string, translated: string) => {
+    try {
+      const updatedCache = { ...translationsCache, [original.toLowerCase()]: translated };
+      setTranslationsCache(updatedCache);
+      localStorage.setItem(TRANSLATION_CACHE_KEY, JSON.stringify(updatedCache));
+    } catch (error) {
+      console.error('Failed to save translation to cache:', error);
+      toast({ title: 'فشل حفظ الترجمة محلياً', variant: 'destructive' });
+    }
+  };
 
   const form = useForm<FormValues>({
     resolver: zodResolver(FormSchema),
@@ -38,17 +63,34 @@ export function SmartTranslation() {
   const onSubmit: SubmitHandler<FormValues> = async (data) => {
     setIsLoading(true);
     setTranslation(null);
+    const query = data.text.trim();
+    
     try {
-      // Determine the target language based on the input text
-      const targetLanguage = isArabic(data.text) ? 'English' : 'Arabic';
+      // Check cache first
+      if (translationsCache[query.toLowerCase()]) {
+        setTranslation(translationsCache[query.toLowerCase()]);
+        setIsLoading(false);
+        toast({
+          title: 'تم العثور على الترجمة في الذاكرة المحلية',
+          description: 'هذه الترجمة تم جلبها من جهازك دون الحاجة للإنترنت.',
+        });
+        return;
+      }
+
+      // If not in cache, proceed with API call
+      const targetLanguage = isArabic(query) ? 'English' : 'Arabic';
       
       const input: SmartTranslationInput = {
-        text: data.text,
+        text: query,
         targetLanguage: targetLanguage,
       };
 
       const translationResult = await smartTranslation(input);
       setTranslation(translationResult.translation);
+      
+      // Save the new translation to cache
+      saveTranslationToCache(query, translationResult.translation);
+
     } catch (error) {
       console.error('Smart Translation Error:', error);
       toast({
@@ -77,8 +119,11 @@ export function SmartTranslation() {
           <Languages className="h-8 w-8" />
           <span>الترجمة الذكية</span>
         </CardTitle>
-        <CardDescription className="text-lg text-muted-foreground pt-2">
-          ترجم بين العربية والإنجليزية. أدخل النص في أي من اللغتين واحصل على الترجمة الفورية.
+        <CardDescription className="text-lg text-muted-foreground pt-2 flex items-center gap-2">
+         <History className="h-5 w-5"/>
+          <span>
+             ترجم بين العربية والإنجليزية. يتم حفظ ترجماتك تلقائيًا للاستخدام دون اتصال بالإنترنت.
+          </span>
         </CardDescription>
       </CardHeader>
       <CardContent className="p-6">
