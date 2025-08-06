@@ -124,9 +124,13 @@ Follow these instructions precisely to generate the output object:
 5.  **Synonyms and Antonyms:**
     -   For key words, provide a \`synonym\`, an \`antonym\` (if applicable, otherwise leave empty), its Arabic \`translation\`, an \`example\` sentence from the lesson, and the \`exampleTranslation\` in Arabic.
 
-6.  **Grammar Rules:**
-    -   Automatically detect and extract all grammar rules present, not just tenses. This includes articles, pronouns, passive voice, questions, etc.
-    -   For each rule, provide its name (\`rule\`), a simple ARABIC \`explanation\`, and a real \`example\` from the lesson with its \`exampleTranslation\`.
+6.  **Smarter Grammar Rules Analysis:**
+    -   Your primary task is to be an expert grammarian. Automatically detect and extract ALL grammar rules present in the text, from basic to advanced. This includes, but is not limited to: tenses, articles (a/an/the), pronouns, prepositions, passive vs. active voice, questions, reported speech, conditionals, modal verbs, comparatives/superlatives, etc.
+    -   For each detected rule:
+        -   \`rule\`: Provide the precise, academic name of the rule (e.g., 'Present Perfect Continuous', 'Third Conditional', 'Use of "the" with Superlatives').
+        -   \`explanation\`: Provide a simple, clear, and direct explanation of the rule in ARABIC, as if you are explaining it to a student.
+        -   \`example\`: Extract a REAL, complete sentence from the user's lesson content that perfectly demonstrates this specific rule.
+        -   \`exampleTranslation\`: Provide the accurate Arabic translation for the example sentence.
 
 7.  **Common Expressions:**
     -   Extract common phrases, idioms, or language chunks.
