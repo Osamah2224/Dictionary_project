@@ -35,7 +35,9 @@ The user will provide text and a target language. Provide the most accurate and 
 
 Translate the following text into {{{targetLanguage}}}:
 
-Text: {{{text}}}`,
+Text: {{{text}}}
+
+Return ONLY the translated text.`,
 });
 
 
