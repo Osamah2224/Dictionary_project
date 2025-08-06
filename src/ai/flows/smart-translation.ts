@@ -37,7 +37,7 @@ Translate the following text into {{{targetLanguage}}}:
 
 Text: {{{text}}}
 
-Return ONLY the translated text.`,
+Return the result as a JSON object with a single key "translation".`,
 });
 
 
