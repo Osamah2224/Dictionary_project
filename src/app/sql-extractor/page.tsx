@@ -1,5 +1,7 @@
 import { SqlExtractor } from '@/components/sql-extractor';
 import { ThemeToggle } from '@/components/theme-toggle';
+import { Button } from '@/components/ui/button';
+import { X } from 'lucide-react';
 import Link from 'next/link';
 
 export default function SqlExtractorPage() {
@@ -10,7 +12,14 @@ export default function SqlExtractorPage() {
          <Link href="/" className="text-3xl md:text-4xl font-headline font-bold text-primary hover:opacity-80 transition-opacity">
             المترجم الذكي
           </Link>
-          <ThemeToggle />
+          <div className="flex items-center gap-4">
+            <ThemeToggle />
+            <Button asChild variant="ghost" size="icon">
+              <Link href="/" aria-label="العودة إلى الصفحة الرئيسية">
+                <X className="h-6 w-6" />
+              </Link>
+            </Button>
+          </div>
         </header>
         <main>
           <SqlExtractor />
