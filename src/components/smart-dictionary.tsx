@@ -1,12 +1,12 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useForm, type SubmitHandler } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { BookMarked, Loader2, Database, Search, Type, List, Repeat, ChevronsUpDown } from 'lucide-react';
+import { BookMarked, Loader2, Database, Search, Type, List, Repeat, ChevronsUpDown, Cog, Play, Pause, Square, ListChecks } from 'lucide-react';
 
-import { smartDictionary, type SmartDictionaryInput } from '@/ai/flows/smart-dictionary';
+import { smartDictionary, type SmartDictionaryOutput } from '@/ai/flows/smart-dictionary';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Form, FormControl, FormField, FormItem, FormMessage } from '@/components/ui/form';
@@ -15,6 +15,10 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { useToast } from '@/hooks/use-toast';
 import Link from 'next/link';
 import { Separator } from './ui/separator';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogDescription } from '@/components/ui/dialog';
+import { Progress } from '@/components/ui/progress';
+import { Pagination } from './pagination';
+import type { ProcessorWorkerMessage, WordProcessorResult } from '@/workers/word-processor.worker';
 
 const FormSchema = z.object({
   query: z.string().min(1, 'الرجاء إدخال كلمة أو عبارة.'),
@@ -22,22 +26,25 @@ const FormSchema = z.object({
 
 type FormValues = z.infer<typeof FormSchema>;
 
-// This will be expanded in the next steps to hold the detailed data.
-type ResultState = {
-  word: string;
-  arabicMeaning: string;
-  definition: string;
-  partOfSpeech: string;
-  derivatives: { word: string; partOfSpeech: string; meaning: string }[];
-  conjugation: { tense: string; form: string; meaning: string }[];
-  synonyms: { word: string; meaning: string }[];
-  antonyms: { word: string; meaning: string }[];
-} | null;
+type ResultState = SmartDictionaryOutput | null;
+
+const WORDS_PER_PAGE = 20;
 
 export function SmartDictionary() {
   const [result, setResult] = useState<ResultState>(null);
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
+  
+  // Word Processor State
+  const [isProcessorOpen, setIsProcessorOpen] = useState(false);
+  const [processingStatus, setProcessingStatus] = useState<'idle' | 'running' | 'paused' | 'stopped'>('idle');
+  const [progress, setProgress] = useState(0);
+  const [processedCount, setProcessedCount] = useState(0);
+  const [totalWordsToProcess, setTotalWordsToProcess] = useState(0);
+  const [processedWords, setProcessedWords] = useState<WordProcessorResult[]>([]);
+  const [currentPage, setCurrentPage] = useState(1);
+  const workerRef = useRef<Worker>();
+
 
   const form = useForm<FormValues>({
     resolver: zodResolver(FormSchema),
@@ -46,38 +53,82 @@ export function SmartDictionary() {
     },
   });
 
+  const loadProcessedWords = () => {
+    try {
+      const storedData = localStorage.getItem('processedWordsDictionary');
+      if (storedData) {
+        const dictionary = JSON.parse(storedData);
+        const wordsArray = Object.values(dictionary) as WordProcessorResult[];
+        setProcessedWords(wordsArray);
+      }
+    } catch (error) {
+      console.error("Failed to load processed words:", error);
+    }
+  };
+
+  useEffect(() => {
+    loadProcessedWords();
+
+    workerRef.current = new Worker(new URL('../workers/word-processor.worker.ts', import.meta.url));
+    
+    workerRef.current.onmessage = (event: MessageEvent<ProcessorWorkerMessage>) => {
+      const { type, payload } = event.data;
+      if (type === 'PROGRESS') {
+        setTotalWordsToProcess(payload.total);
+        setProcessedCount(payload.processed);
+        setProgress(payload.progress);
+      } else if (type === 'DONE') {
+        setProcessingStatus('idle');
+        toast({ title: 'اكتملت المعالجة بنجاح!' });
+        loadProcessedWords(); // Refresh the list
+      } else if (type === 'STOPPED') {
+        setProcessingStatus('stopped');
+        toast({ title: 'تم إيقاف المعالجة.', variant: 'destructive' });
+        loadProcessedWords();
+      } else if(type === 'WORD_PROCESSED'){
+        // Add new word to the list in real-time
+        setProcessedWords(prev => [...prev, payload]);
+      }
+    };
+    
+    return () => {
+      workerRef.current?.terminate();
+    };
+  }, [toast]);
+  
+
   const onSubmit: SubmitHandler<FormValues> = async (data) => {
     setIsLoading(true);
     setResult(null);
+    const query = data.query.trim();
     try {
-      // For now, we'll use placeholder data to show the new UI.
-      // We will replace this with a real API call later.
-      setTimeout(() => {
-        setResult({
-          word: 'Exacerbate',
-          arabicMeaning: 'يفاقم / يفاقم',
-          definition: 'To make (a problem, bad situation, or negative feeling) worse.',
-          partOfSpeech: 'Verb',
-          derivatives: [
-            { word: 'Exacerbation', partOfSpeech: 'Noun', meaning: 'تفاقم' },
-            { word: 'Exacerbatingly', partOfSpeech: 'Adverb', meaning: 'بشكل متفاقم' },
-          ],
-          conjugation: [
-            { tense: 'Infinitive', form: 'To exacerbate', meaning: 'أن يفاقم' },
-            { tense: 'Past Tense', form: 'Exacerbated', meaning: 'فاقم' },
-            { tense: 'Past Participle', form: 'Exacerbated', meaning: 'متفاقم' },
-          ],
-          synonyms: [
-            { word: 'Aggravate', meaning: 'يفاقم' },
-            { word: 'Worsen', meaning: 'يزيد سوءًا' },
-          ],
-          antonyms: [
-            { word: 'Alleviate', meaning: 'يخفف' },
-            { word: 'Soothe', meaning: 'يهدئ' },
-          ],
-        });
-        setIsLoading(false);
-      }, 1500);
+      // 1. Check local storage first
+      const storedData = localStorage.getItem('processedWordsDictionary');
+      if (storedData) {
+        const dictionary = JSON.parse(storedData);
+        if (dictionary[query.toLowerCase()]) {
+          setResult(dictionary[query.toLowerCase()]);
+          setIsLoading(false);
+          toast({ title: "تم العثور على الكلمة في القاموس المحلي" });
+          return;
+        }
+      }
+
+      // 2. If not found, call AI
+      const aiResult = await smartDictionary({ query: query, targetLanguage: 'English' });
+      setResult(aiResult);
+      
+      // 3. Save the new result to local storage
+      try {
+        const currentData = localStorage.getItem('processedWordsDictionary');
+        const currentDictionary = currentData ? JSON.parse(currentData) : {};
+        currentDictionary[query.toLowerCase()] = aiResult;
+        localStorage.setItem('processedWordsDictionary', JSON.stringify(currentDictionary));
+        loadProcessedWords(); // Refresh list
+      } catch (e) {
+        console.error("Failed to save to local storage", e);
+        toast({ title: "فشل حفظ النتيجة محلياً", variant: "destructive" });
+      }
 
     } catch (error) {
       console.error('Smart Dictionary Error:', error);
@@ -86,11 +137,38 @@ export function SmartDictionary() {
         title: 'حدث خطأ',
         description: 'فشل في جلب التعريف. الرجاء المحاولة مرة أخرى.',
       });
+    } finally {
       setIsLoading(false);
     }
   };
 
+  const handleProcessorControl = () => {
+    if (processingStatus === 'running') {
+      workerRef.current?.postMessage({ command: 'pause' });
+      setProcessingStatus('paused');
+    } else {
+      workerRef.current?.postMessage({ command: 'start' });
+      setProcessingStatus('running');
+    }
+  };
+
+  const stopProcessing = () => {
+    workerRef.current?.postMessage({ command: 'stop' });
+  };
+  
+  const handleWordClick = (wordData: WordProcessorResult) => {
+    form.setValue('query', wordData.word);
+    setResult(wordData);
+  };
+
+  const paginatedProcessedWords = processedWords.slice(
+    (currentPage - 1) * WORDS_PER_PAGE,
+    currentPage * WORDS_PER_PAGE
+  );
+
+
   return (
+    <>
     <Card className="w-full border-2 border-primary/20 shadow-xl rounded-xl overflow-hidden">
       <CardHeader className="bg-primary/5">
         <div className="flex items-center justify-between">
@@ -98,11 +176,51 @@ export function SmartDictionary() {
             <BookMarked className="h-8 w-8" />
             <span>القاموس الذكي</span>
           </CardTitle>
-          <Button asChild variant="ghost" size="icon" className="group text-primary hover:bg-primary/10" title="مستخرج الكلمات من ملف SQL">
-             <Link href="/sql-extractor">
-                <Database className="h-6 w-6" />
-             </Link>
-          </Button>
+          <div className='flex items-center gap-2'>
+             <Dialog open={isProcessorOpen} onOpenChange={setIsProcessorOpen}>
+              <DialogTrigger asChild>
+                <Button variant="ghost" size="icon" className="group text-primary hover:bg-primary/10" title="معالج الكلمات">
+                  <Cog className="h-6 w-6" />
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle className='flex items-center gap-2'>
+                    <Cog /> معالج الكلمات الآلي
+                  </DialogTitle>
+                  <DialogDescription>
+                    يقوم هذا المعالج بجلب تفاصيل الكلمات المحفوظة من مستخرج SQL وتخزينها في القاموس المحلي للاستخدام دون الحاجة للإنترنت.
+                  </DialogDescription>
+                </DialogHeader>
+                <div className='space-y-4 py-4'>
+                  <div className='flex items-center justify-between'>
+                    <span className='font-medium'>التقدم:</span>
+                    <span className='font-bold text-primary'>{processedCount} / {totalWordsToProcess}</span>
+                  </div>
+                  <Progress value={progress} />
+                   <p className='text-sm text-center text-muted-foreground'>
+                    {processingStatus === 'running' && 'جاري المعالجة...'}
+                    {processingStatus === 'paused' && 'متوقف مؤقتاً.'}
+                    {processingStatus === 'stopped' && 'تم الإيقاف.'}
+                    {processingStatus === 'idle' && 'في وضع الاستعداد.'}
+                  </p>
+                </div>
+                <DialogFooter className='gap-2'>
+                  <Button onClick={stopProcessing} variant="destructive" disabled={processingStatus !== 'running' && processingStatus !== 'paused'}>
+                    <Square className="ml-2 h-4 w-4" /> إيقاف نهائي
+                  </Button>
+                  <Button onClick={handleProcessorControl} disabled={processingStatus === 'stopped'} className='w-32'>
+                    {processingStatus === 'running' ? <><Pause className="ml-2 h-4 w-4" /> إيقاف مؤقت</> : <><Play className="ml-2 h-4 w-4" /> بدء/استئناف</>}
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+            <Button asChild variant="ghost" size="icon" className="group text-primary hover:bg-primary/10" title="مستخرج الكلمات من ملف SQL">
+               <Link href="/sql-extractor">
+                  <Database className="h-6 w-6" />
+               </Link>
+            </Button>
+          </div>
         </div>
       </CardHeader>
       <CardContent className="p-6">
@@ -140,7 +258,6 @@ export function SmartDictionary() {
 
         {result && (
           <div className="mt-8 border-t-2 border-primary/10 pt-6 animate-in fade-in duration-500 space-y-8">
-            {/* Word and Meaning */}
             <div className="text-center">
               <h2 className="text-5xl font-bold text-primary">{result.word}</h2>
               <p className="text-2xl text-muted-foreground mt-2">{result.arabicMeaning}</p>
@@ -149,58 +266,25 @@ export function SmartDictionary() {
             <Separator />
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                {/* Left Column */}
                 <div className="space-y-8">
-                    {/* Definition */}
                     <Card>
-                        <CardHeader>
-                            <CardTitle className="flex items-center gap-2 text-xl">
-                                <BookMarked className="text-primary" />
-                                <span>Definition / التعريف</span>
-                            </CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                            <p className="text-lg leading-relaxed">{result.definition}</p>
-                        </CardContent>
+                        <CardHeader><CardTitle className="flex items-center gap-2 text-xl"><BookMarked className="text-primary" /><span>Definition / التعريف</span></CardTitle></CardHeader>
+                        <CardContent><p className="text-lg leading-relaxed">{result.definition}</p></CardContent>
                     </Card>
 
-                    {/* Part of Speech */}
                     <Card>
-                        <CardHeader>
-                            <CardTitle className="flex items-center gap-2 text-xl">
-                                <Type className="text-primary" />
-                                <span>Part of Speech / التصنيف</span>
-                            </CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                            <p className="text-lg">{result.partOfSpeech}</p>
-                        </CardContent>
+                        <CardHeader><CardTitle className="flex items-center gap-2 text-xl"><Type className="text-primary" /><span>Part of Speech / التصنيف</span></CardTitle></CardHeader>
+                        <CardContent><p className="text-lg">{result.partOfSpeech}</p></CardContent>
                     </Card>
                     
-                    {/* Derivatives */}
                     <Card>
-                        <CardHeader>
-                            <CardTitle className="flex items-center gap-2 text-xl">
-                                <List className="text-primary" />
-                                <span>Derivatives / المشتقات</span>
-                            </CardTitle>
-                        </CardHeader>
+                        <CardHeader><CardTitle className="flex items-center gap-2 text-xl"><List className="text-primary" /><span>Derivatives / المشتقات</span></CardTitle></CardHeader>
                         <CardContent>
                             <Table>
-                                <TableHeader>
-                                    <TableRow>
-                                        <TableHead>Word</TableHead>
-                                        <TableHead>Type</TableHead>
-                                        <TableHead>Arabic Meaning</TableHead>
-                                    </TableRow>
-                                </TableHeader>
+                                <TableHeader><TableRow><TableHead>Word</TableHead><TableHead>Type</TableHead><TableHead>Arabic Meaning</TableHead></TableRow></TableHeader>
                                 <TableBody>
                                     {result.derivatives.map((item, index) => (
-                                        <TableRow key={index}>
-                                            <TableCell>{item.word}</TableCell>
-                                            <TableCell>{item.partOfSpeech}</TableCell>
-                                            <TableCell>{item.meaning}</TableCell>
-                                        </TableRow>
+                                        <TableRow key={index}><TableCell>{item.word}</TableCell><TableCell>{item.partOfSpeech}</TableCell><TableCell>{item.meaning}</TableCell></TableRow>
                                     ))}
                                 </TableBody>
                             </Table>
@@ -208,46 +292,23 @@ export function SmartDictionary() {
                     </Card>
                 </div>
 
-                {/* Right Column */}
                 <div className="space-y-8">
-                    {/* Conjugation */}
                     <Card>
-                        <CardHeader>
-                            <CardTitle className="flex items-center gap-2 text-xl">
-                                <Repeat className="text-primary" />
-                                <span>Conjugation / تصريف الفعل</span>
-                            </CardTitle>
-                        </CardHeader>
+                        <CardHeader><CardTitle className="flex items-center gap-2 text-xl"><Repeat className="text-primary" /><span>Conjugation / تصريف الفعل</span></CardTitle></CardHeader>
                         <CardContent>
                             <Table>
-                                <TableHeader>
-                                    <TableRow>
-                                        <TableHead>Tense</TableHead>
-                                        <TableHead>Form</TableHead>
-                                        <TableHead>Arabic Meaning</TableHead>
-                                    </TableRow>
-                                </TableHeader>
+                                <TableHeader><TableRow><TableHead>Tense</TableHead><TableHead>Form</TableHead><TableHead>Arabic Meaning</TableHead></TableRow></TableHeader>
                                 <TableBody>
                                     {result.conjugation.map((item, index) => (
-                                        <TableRow key={index}>
-                                            <TableCell>{item.tense}</TableCell>
-                                            <TableCell>{item.form}</TableCell>
-                                            <TableCell>{item.meaning}</TableCell>
-                                        </TableRow>
+                                        <TableRow key={index}><TableCell>{item.tense}</TableCell><TableCell>{item.form}</TableCell><TableCell>{item.meaning}</TableCell></TableRow>
                                     ))}
                                 </TableBody>
                             </Table>
                         </CardContent>
                     </Card>
 
-                    {/* Synonyms & Antonyms */}
                      <Card>
-                        <CardHeader>
-                            <CardTitle className="flex items-center gap-2 text-xl">
-                                <ChevronsUpDown className="text-primary" />
-                                <span>Synonyms & Antonyms / المرادفات والتضاد</span>
-                            </CardTitle>
-                        </CardHeader>
+                        <CardHeader><CardTitle className="flex items-center gap-2 text-xl"><ChevronsUpDown className="text-primary" /><span>Synonyms & Antonyms / المرادفات والتضاد</span></CardTitle></CardHeader>
                         <CardContent>
                              <div className="grid grid-cols-2 gap-4">
                                 <div>
@@ -255,9 +316,7 @@ export function SmartDictionary() {
                                     <Table>
                                         <TableBody>
                                             {result.synonyms.map((item, index) => (
-                                                <TableRow key={index}>
-                                                    <TableCell className="p-2">{item.word}</TableCell>
-                                                </TableRow>
+                                                <TableRow key={index}><TableCell className="p-2">{item.word}</TableCell></TableRow>
                                             ))}
                                         </TableBody>
                                     </Table>
@@ -267,9 +326,7 @@ export function SmartDictionary() {
                                     <Table>
                                         <TableBody>
                                             {result.antonyms.map((item, index) => (
-                                                <TableRow key={index}>
-                                                    <TableCell className="p-2">{item.word}</TableCell>
-                                                </TableRow>
+                                                <TableRow key={index}><TableCell className="p-2">{item.word}</TableCell></TableRow>
                                             ))}
                                         </TableBody>
                                     </Table>
@@ -283,5 +340,44 @@ export function SmartDictionary() {
         )}
       </CardContent>
     </Card>
+
+    <Card className="w-full border-2 border-primary/20 shadow-xl rounded-xl mt-8">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-3 text-2xl font-headline text-primary">
+          <ListChecks className="h-8 w-8" />
+          <span>الكلمات المعالجة في القاموس المحلي ({processedWords.length})</span>
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+         {processedWords.length > 0 ? (
+          <>
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+              {paginatedProcessedWords.map((wordData, index) => (
+                <Button 
+                  key={index} 
+                  variant="outline" 
+                  className="justify-start text-right"
+                  onClick={() => handleWordClick(wordData)}
+                >
+                  {wordData.word}
+                </Button>
+              ))}
+            </div>
+            <Pagination
+              currentPage={currentPage}
+              totalPages={Math.ceil(processedWords.length / WORDS_PER_PAGE)}
+              onPageChange={setCurrentPage}
+            />
+          </>
+        ) : (
+          <p className="text-muted-foreground text-center py-8">
+            لا توجد كلمات معالجة حتى الآن. استخدم "معالج الكلمات" لبدء العملية.
+          </p>
+        )}
+      </CardContent>
+    </Card>
+  </>
   );
 }
+
+    
