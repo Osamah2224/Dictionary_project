@@ -15,7 +15,7 @@ const SmartDictionaryOutputSchema = z.object({
   word: z.string().describe("The English word that was looked up."),
   arabicMeaning: z.string().describe("The Arabic translation of the word."),
   definition: z.string().describe("A clear and concise definition of the word in English."),
-  partOfSpeech: z.string().describe("The grammatical category of the word (e.g., Noun, Verb, Adjective)."),
+  partOfSpeech: z.string().describe("The grammatical category of the word (e.g., Noun, Verb, Adjective). Be very accurate."),
   derivatives: z.array(z.object({
     word: z.string().describe("A derived form of the original word."),
     partOfSpeech: z.string().describe("The part of speech of the derived word."),
@@ -51,18 +51,31 @@ const prompt = ai.definePrompt({
   name: 'smartDictionaryPrompt',
   input: {schema: SmartDictionaryInputSchema},
   output: {schema: SmartDictionaryOutputSchema},
-  prompt: `You are a powerful linguistic analysis tool. For the given English word, provide a comprehensive breakdown.
-The user wants to understand the word '{{{query}}}' fully.
+  prompt: `You are a powerful and intelligent bilingual linguistic analysis tool for English and Arabic.
+Your task is to provide a comprehensive breakdown of the user's query: '{{{query}}}'.
 
-Provide the following details:
-1.  **word**: The word itself, correctly capitalized.
-2.  **arabicMeaning**: The most common and accurate Arabic translation.
+First, determine if the query is in English or Arabic.
+
+If the query is in English:
+- The 'word' field in your output should be the English query.
+- The 'arabicMeaning' field should be its most accurate Arabic translation.
+- Then, fill out all the other fields (definition, partOfSpeech, derivatives, etc.) for the English word. Ensure the partOfSpeech is very accurate.
+
+If the query is in Arabic:
+- First, find the most common and direct English translation for the Arabic query.
+- The 'word' field in your output MUST be this English translation.
+- The 'arabicMeaning' field in your output MUST be the original Arabic query.
+- Then, perform the full analysis for the translated ENGLISH word and fill out all the other fields (definition, partOfSpeech, derivatives, etc.). Ensure the partOfSpeech is very accurate.
+
+Provide the following details for the English word:
+1.  **word**: The English word, correctly capitalized.
+2.  **arabicMeaning**: The Arabic translation.
 3.  **definition**: A clear, concise English definition.
-4.  **partOfSpeech**: The primary grammatical category (e.g., Verb, Noun, Adjective).
-5.  **derivatives**: A list of related words (e.g., if the word is 'decide', a derivative is 'decision'). Include their part of speech and Arabic meaning. If none, return an empty array.
-6.  **conjugation**: If the word is a verb, provide its main conjugations: Infinitive, Past Tense, and Past Participle, along with their Arabic meanings. If it's not a verb, return an empty array.
-7.  **synonyms**: A list of at least 2-3 common synonyms with their Arabic meanings. If none, return an empty array.
-8.  **antonyms**: A list of at least 2-3 common antonyms with their Arabic meanings. If none, return an empty array.
+4.  **partOfSpeech**: The primary grammatical category (e.g., Verb, Noun, Adjective). Be very accurate.
+5.  **derivatives**: A list of related words. If none, return an empty array.
+6.  **conjugation**: If the word is a verb, provide its main conjugations. If it's not a verb, return an empty array.
+7.  **synonyms**: A list of at least 2-3 common synonyms. If none, return an empty array.
+8.  **antonyms**: A list of at least 2-3 common antonyms. If none, return an empty array.
 `,
 });
 

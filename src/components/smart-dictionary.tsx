@@ -30,6 +30,31 @@ type ResultState = SmartDictionaryOutput | null;
 
 const WORDS_PER_PAGE = 20;
 
+const SmartDictionaryOutputSchema = z.object({
+  word: z.string(),
+  arabicMeaning: z.string(),
+  definition: z.string(),
+  partOfSpeech: z.string(),
+  derivatives: z.array(z.object({
+    word: z.string(),
+    partOfSpeech: z.string(),
+    meaning: z.string()
+  })),
+  conjugation: z.array(z.object({
+    tense: z.string(),
+    form: z.string(),
+    meaning: z.string()
+  })),
+  synonyms: z.array(z.object({
+    word: z.string(),
+    meaning: z.string()
+  })),
+  antonyms: z.array(z.object({
+    word: z.string(),
+    meaning: z.string()
+  })),
+});
+
 export function SmartDictionary() {
   const [result, setResult] = useState<ResultState>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -57,23 +82,30 @@ export function SmartDictionary() {
       const storedData = localStorage.getItem('processedWordsDictionary');
       if (storedData) {
         const dictionary = JSON.parse(storedData);
-        const wordsArray = Object.values(dictionary) as WordProcessorResult[];
+        const wordsArray = Object.values(dictionary).map(word => SmartDictionaryOutputSchema.parse(word)) as WordProcessorResult[];
         setProcessedWords(wordsArray.sort((a,b) => a.word.localeCompare(b.word)));
       }
     } catch (error) {
-      console.error("Failed to load processed words:", error);
+      console.error("Failed to load or parse processed words:", error);
+      // localStorage.removeItem('processedWordsDictionary');
     }
   };
   
   const saveWordToDictionary = (wordData: WordProcessorResult) => {
     try {
+      // Validate data with Zod schema before saving
+      const validatedData = SmartDictionaryOutputSchema.parse(wordData);
+      
       const currentData = localStorage.getItem('processedWordsDictionary');
       const currentDictionary = currentData ? JSON.parse(currentData) : {};
-      currentDictionary[wordData.word.toLowerCase()] = wordData;
+
+      // Use the English word as the key, always
+      currentDictionary[validatedData.word.toLowerCase()] = validatedData;
+
       localStorage.setItem('processedWordsDictionary', JSON.stringify(currentDictionary));
       
       setProcessedWords(prev => 
-        [...prev.filter(p => p.word.toLowerCase() !== wordData.word.toLowerCase()), wordData]
+        [...prev.filter(p => p.word.toLowerCase() !== validatedData.word.toLowerCase()), validatedData]
         .sort((a,b) => a.word.localeCompare(b.word))
       );
 
@@ -119,13 +151,18 @@ export function SmartDictionary() {
   const onSubmit: SubmitHandler<FormValues> = async (data) => {
     setIsLoading(true);
     setResult(null);
-    const query = data.query.trim();
+    const query = data.query.trim().toLowerCase();
     try {
       const storedData = localStorage.getItem('processedWordsDictionary');
       if (storedData) {
-        const dictionary = JSON.parse(storedData);
-        if (dictionary[query.toLowerCase()]) {
-          setResult(dictionary[query.toLowerCase()]);
+        const dictionary: Record<string, WordProcessorResult> = JSON.parse(storedData);
+        // Search by English word (key) or Arabic meaning (value)
+        const foundEntry = Object.values(dictionary).find(
+            entry => entry.word.toLowerCase() === query || entry.arabicMeaning.toLowerCase() === query
+        );
+
+        if (foundEntry) {
+          setResult(foundEntry);
           setIsLoading(false);
           toast({ title: "تم العثور على الكلمة في القاموس المحلي" });
           return;
@@ -346,6 +383,10 @@ export function SmartDictionary() {
                                   <div>
                                       <h4 className="font-semibold text-lg mb-2 text-green-600">Synonyms <span className="text-muted-foreground text-sm">/ مرادفات</span></h4>
                                       <Table>
+                                          <TableHeader><TableRow>
+                                                <TableHead>Word <span className="text-muted-foreground text-sm">/ الكلمة</span></TableHead>
+                                                <TableHead>Meaning <span className="text-muted-foreground text-sm">/ المعنى</span></TableHead>
+                                          </TableRow></TableHeader>
                                           <TableBody>
                                               {result.synonyms.map((item, index) => (
                                                   <TableRow key={index}>
@@ -361,6 +402,10 @@ export function SmartDictionary() {
                                   <div>
                                       <h4 className="font-semibold text-lg mb-2 text-red-600">Antonyms <span className="text-muted-foreground text-sm">/ متضادات</span></h4>
                                       <Table>
+                                           <TableHeader><TableRow>
+                                                <TableHead>Word <span className="text-muted-foreground text-sm">/ الكلمة</span></TableHead>
+                                                <TableHead>Meaning <span className="text-muted-foreground text-sm">/ المعنى</span></TableHead>
+                                          </TableRow></TableHeader>
                                           <TableBody>
                                               {result.antonyms.map((item, index) => (
                                                   <TableRow key={index}>
