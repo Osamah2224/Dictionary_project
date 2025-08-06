@@ -3,6 +3,8 @@ import { SmartDictionary } from '@/components/smart-dictionary';
 import { SmartTranslation } from '@/components/smart-translation';
 import { AboutMe } from '@/components/about-me';
 import { ThemeToggle } from '@/components/theme-toggle';
+import { Database } from 'lucide-react';
+import Link from 'next/link';
 
 export default function Home() {
   return (
@@ -18,11 +20,16 @@ export default function Home() {
           <Tabs defaultValue="dictionary" className="w-full">
             <TabsList className="flex justify-center w-full bg-transparent p-0 gap-6 mb-8">
               <TabsTrigger value="dictionary" className="text-lg md:text-xl py-3 px-6 rounded-lg shadow-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-2xl transition-all duration-300 transform hover:-translate-y-1">
+                <Database className="ml-2 h-5 w-5" />
                 القاموس الذكي
               </TabsTrigger>
               <TabsTrigger value="translation" className="text-lg md:text-xl py-3 px-6 rounded-lg shadow-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-2xl transition-all duration-300 transform hover:-translate-y-1">
                 الترجمة الذكية
               </TabsTrigger>
+               <Link href="/sql-extractor" className="text-lg md:text-xl py-3 px-6 rounded-lg shadow-lg bg-card text-foreground hover:bg-primary/90 hover:text-primary-foreground transition-all duration-300 transform hover:-translate-y-1 flex items-center">
+                 <Database className="ml-2 h-5 w-5" />
+                 مستخرج الكلمات
+               </Link>
               <TabsTrigger value="about" className="text-lg md:text-xl py-3 px-6 rounded-lg shadow-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-2xl transition-all duration-300 transform hover:-translate-y-1">
                 أ. اسامة العُمري
               </TabsTrigger>

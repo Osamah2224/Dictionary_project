@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useForm, type SubmitHandler } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { BookMarked, Loader2 } from 'lucide-react';
+import { Database, Loader2 } from 'lucide-react';
 
 import { smartDictionary, type SmartDictionaryInput } from '@/ai/flows/smart-dictionary';
 import { Button } from '@/components/ui/button';
@@ -60,7 +60,7 @@ export function SmartDictionary() {
     <Card className="w-full border-2 border-primary/20 shadow-xl rounded-xl">
       <CardHeader>
         <CardTitle className="flex items-center gap-3 text-2xl font-headline text-primary">
-          <BookMarked className="h-8 w-8 text-accent" />
+          <Database className="h-8 w-8 text-accent" />
           <span>القاموس الذكي</span>
         </CardTitle>
         <CardDescription className="text-lg text-muted-foreground pt-2">
