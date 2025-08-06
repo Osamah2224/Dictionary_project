@@ -10,89 +10,87 @@ export type ProcessorWorkerMessage =
   | { type: 'DONE' }
   | { type: 'STOPPED' };
 
+type WorkerCommand = 
+  | { command: 'start', wordsToProcess: string[], processedDictionary: Record<string, WordProcessorResult> }
+  | { command: 'pause' }
+  | { command: 'stop' };
+
 let isPaused = false;
 let isStopped = false;
+let currentWordIndex = 0;
+let wordsQueue: string[] = [];
 
 // This is the main processing function.
 async function processWords() {
-  isPaused = false;
-  isStopped = false;
+  isPaused = false; 
 
-  try {
-    const wordsToProcess: string[] = JSON.parse(localStorage.getItem('englishWords') || '[]');
-    const processedDictionary: Record<string, WordProcessorResult> = JSON.parse(localStorage.getItem('processedWordsDictionary') || '{}');
-    
-    const unprocessedWords = wordsToProcess.filter(word => !processedDictionary[word.toLowerCase()]);
-    
-    if (unprocessedWords.length === 0) {
-      self.postMessage({ type: 'PROGRESS', payload: { progress: 100, processed: 0, total: 0 } });
-      self.postMessage({ type: 'DONE' });
+  const total = wordsQueue.length;
+  let processedSinceStart = 0;
+  
+  // Initial progress update
+  self.postMessage({ type: 'PROGRESS', payload: { progress: total > 0 ? (currentWordIndex / total) * 100 : 0, processed: currentWordIndex, total } });
+
+  while (currentWordIndex < wordsQueue.length) {
+    if (isPaused) {
+      await new Promise(resolve => {
+        const interval = setInterval(() => {
+          if (!isPaused || isStopped) {
+            clearInterval(interval);
+            resolve(null);
+          }
+        }, 200);
+      });
+    }
+
+    if (isStopped) {
+      console.log("Processing stopped by user.");
+      self.postMessage({ type: 'STOPPED' });
       return;
     }
-
-    const total = unprocessedWords.length;
-    let processedCount = 0;
-
-    self.postMessage({ type: 'PROGRESS', payload: { progress: 0, processed: 0, total } });
-
-    for (const word of unprocessedWords) {
-      while (isPaused) {
-        if (isStopped) break;
-        await new Promise(resolve => setTimeout(resolve, 500)); // Wait if paused
-      }
-      if (isStopped) {
-        console.log("Processing stopped by user.");
-        self.postMessage({ type: 'STOPPED' });
-        return;
-      }
-      
-      try {
-        const result = await smartDictionary({ query: word });
-        
-        const currentData = localStorage.getItem('processedWordsDictionary');
-        const currentDictionary = currentData ? JSON.parse(currentData) : {};
-        currentDictionary[word.toLowerCase()] = result;
-        localStorage.setItem('processedWordsDictionary', JSON.stringify(currentDictionary));
-
-        self.postMessage({ type: 'WORD_PROCESSED', payload: result });
-
-      } catch (error) {
-        console.error(`Failed to process word: ${word}`, error);
-        // Optional: Notify main thread of the error for this specific word
-      } finally {
-         processedCount++;
-         const progress = total > 0 ? (processedCount / total) * 100 : 100;
-         self.postMessage({ type: 'PROGRESS', payload: { progress, processed: processedCount, total } });
-      }
-    }
     
-    if (!isStopped) {
-       self.postMessage({ type: 'DONE' });
+    const word = wordsQueue[currentWordIndex];
+    
+    try {
+      const result = await smartDictionary({ query: word });
+      // Send the processed word back to the main thread to handle storage
+      self.postMessage({ type: 'WORD_PROCESSED', payload: result });
+    } catch (error) {
+      console.error(`Failed to process word: ${word}`, error);
+      // Optional: Notify main thread of the error for this specific word
+    } finally {
+       currentWordIndex++;
+       processedSinceStart++;
+       const progress = total > 0 ? (currentWordIndex / total) * 100 : 100;
+       self.postMessage({ type: 'PROGRESS', payload: { progress, processed: currentWordIndex, total } });
+       // Optional delay between API calls to avoid rate limiting
+       await new Promise(resolve => setTimeout(resolve, 200)); 
     }
-
-  } catch (error) {
-    console.error('Word processor worker error:', error);
+  }
+    
+  if (!isStopped) {
+     self.postMessage({ type: 'DONE' });
   }
 }
 
-
-self.onmessage = async (event: MessageEvent<{ command: 'start' | 'pause' | 'stop' }>) => {
+self.onmessage = async (event: MessageEvent<WorkerCommand>) => {
   const { command } = event.data;
 
   switch (command) {
     case 'start':
-      if (isPaused) {
-        isPaused = false; // Just resume
-      } else {
-        processWords(); // Start a new job
-      }
+      isStopped = false;
+      isPaused = false;
+      const { wordsToProcess, processedDictionary } = event.data;
+      // Filter out words that are already processed.
+      wordsQueue = wordsToProcess.filter(word => !processedDictionary[word.toLowerCase()]);
+      currentWordIndex = 0;
+      processWords(); // Start the job
       break;
     case 'pause':
       isPaused = true;
       break;
     case 'stop':
       isStopped = true;
-      isPaused = false;
+      isPaused = false; // To unblock the waiting loop if it's paused.
       break;
   }
 };

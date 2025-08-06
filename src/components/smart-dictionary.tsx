@@ -35,6 +35,13 @@ export function SmartDictionary() {
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
   
+  const form = useForm<FormValues>({
+    resolver: zodResolver(FormSchema),
+    defaultValues: {
+      query: '',
+    },
+  });
+
   // Word Processor State
   const [isProcessorOpen, setIsProcessorOpen] = useState(false);
   const [processingStatus, setProcessingStatus] = useState<'idle' | 'running' | 'paused' | 'stopped'>('idle');
@@ -44,14 +51,6 @@ export function SmartDictionary() {
   const [processedWords, setProcessedWords] = useState<WordProcessorResult[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
   const workerRef = useRef<Worker>();
-
-
-  const form = useForm<FormValues>({
-    resolver: zodResolver(FormSchema),
-    defaultValues: {
-      query: '',
-    },
-  });
 
   const loadProcessedWords = () => {
     try {
@@ -65,6 +64,25 @@ export function SmartDictionary() {
       console.error("Failed to load processed words:", error);
     }
   };
+  
+  const saveWordToDictionary = (wordData: WordProcessorResult) => {
+    try {
+      const currentData = localStorage.getItem('processedWordsDictionary');
+      const currentDictionary = currentData ? JSON.parse(currentData) : {};
+      currentDictionary[wordData.word.toLowerCase()] = wordData;
+      localStorage.setItem('processedWordsDictionary', JSON.stringify(currentDictionary));
+      
+      setProcessedWords(prev => 
+        [...prev.filter(p => p.word.toLowerCase() !== wordData.word.toLowerCase()), wordData]
+        .sort((a,b) => a.word.localeCompare(b.word))
+      );
+
+    } catch (e) {
+      console.error("Failed to save to local storage", e);
+      toast({ title: "فشل حفظ النتيجة محلياً", variant: "destructive" });
+    }
+  };
+
 
   useEffect(() => {
     loadProcessedWords();
@@ -83,11 +101,11 @@ export function SmartDictionary() {
         loadProcessedWords(); // Refresh the list
       } else if (type === 'STOPPED') {
         setProcessingStatus('stopped');
-        toast({ title: 'تم إيقاف المعالجة.', variant: 'destructive' });
+        toast({ title: 'تم إيقاف المعالجة.', variant: 'default' });
         loadProcessedWords();
       } else if(type === 'WORD_PROCESSED'){
-        // Add new word to the list in real-time
-        setProcessedWords(prev => [...prev, payload].sort((a,b) => a.word.localeCompare(b.word)));
+        // The worker has processed a word, now the main thread saves it.
+        saveWordToDictionary(payload);
       }
     };
     
@@ -103,7 +121,6 @@ export function SmartDictionary() {
     setResult(null);
     const query = data.query.trim();
     try {
-      // 1. Check local storage first
       const storedData = localStorage.getItem('processedWordsDictionary');
       if (storedData) {
         const dictionary = JSON.parse(storedData);
@@ -115,21 +132,11 @@ export function SmartDictionary() {
         }
       }
 
-      // 2. If not found, call AI
       const aiResult = await smartDictionary({ query: query });
       setResult(aiResult);
       
-      // 3. Save the new result to local storage
-      try {
-        const currentData = localStorage.getItem('processedWordsDictionary');
-        const currentDictionary = currentData ? JSON.parse(currentData) : {};
-        currentDictionary[query.toLowerCase()] = aiResult;
-        localStorage.setItem('processedWordsDictionary', JSON.stringify(currentDictionary));
-        loadProcessedWords(); // Refresh list
-      } catch (e) {
-        console.error("Failed to save to local storage", e);
-        toast({ title: "فشل حفظ النتيجة محلياً", variant: "destructive" });
-      }
+      // Save the new result to the local dictionary
+      saveWordToDictionary(aiResult);
 
     } catch (error) {
       console.error('Smart Dictionary Error:', error);
@@ -147,8 +154,10 @@ export function SmartDictionary() {
     if (processingStatus === 'running') {
       workerRef.current?.postMessage({ command: 'pause' });
       setProcessingStatus('paused');
-    } else {
-      workerRef.current?.postMessage({ command: 'start' });
+    } else { // 'idle', 'paused', 'stopped'
+      const wordsToProcess = JSON.parse(localStorage.getItem('englishWords') || '[]');
+      const processedDictionary = JSON.parse(localStorage.getItem('processedWordsDictionary') || '{}');
+      workerRef.current?.postMessage({ command: 'start', wordsToProcess, processedDictionary });
       setProcessingStatus('running');
     }
   };
