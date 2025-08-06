@@ -57,27 +57,27 @@ export function SmartDictionary() {
   };
 
   return (
-    <Card className="w-full border-2 border-primary/20 shadow-lg">
+    <Card className="w-full border-2 border-primary/20 shadow-xl rounded-xl">
       <CardHeader>
-        <CardTitle className="flex items-center gap-2 text-xl font-headline">
-          <BookMarked className="text-accent" />
+        <CardTitle className="flex items-center gap-3 text-2xl font-headline text-primary">
+          <BookMarked className="h-8 w-8 text-accent" />
           <span>القاموس الذكي</span>
         </CardTitle>
-        <CardDescription>
+        <CardDescription className="text-lg text-muted-foreground pt-2">
           أدخل كلمة أو عبارة واحصل على تعريفها المترجم ومثال على استخدامها في السياق.
         </CardDescription>
       </CardHeader>
       <CardContent>
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
             <FormField
               control={form.control}
               name="query"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>الكلمة أو العبارة</FormLabel>
+                  <FormLabel className="text-lg">الكلمة أو العبارة</FormLabel>
                   <FormControl>
-                    <Input placeholder="مثال: Technology" {...field} />
+                    <Input placeholder="مثال: Technology" {...field} className="py-6 text-lg"/>
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -88,47 +88,47 @@ export function SmartDictionary() {
               name="targetLanguage"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>الترجمة إلى</FormLabel>
+                  <FormLabel className="text-lg">الترجمة إلى</FormLabel>
                   <Select onValueChange={field.onChange} defaultValue={field.value}>
                     <FormControl>
-                      <SelectTrigger>
+                      <SelectTrigger className="py-6 text-lg">
                         <SelectValue placeholder="اختر اللغة المستهدفة" />
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      <SelectItem value="Arabic">العربية</SelectItem>
-                      <SelectItem value="English">الإنجليزية</SelectItem>
-                      <SelectItem value="French">الفرنسية</SelectItem>
-                      <SelectItem value="Spanish">الإسبانية</SelectItem>
-                      <SelectItem value="German">الألمانية</SelectItem>
+                      <SelectItem value="Arabic" className="text-lg">العربية</SelectItem>
+                      <SelectItem value="English" className="text-lg">الإنجليزية</SelectItem>
+                      <SelectItem value="French" className="text-lg">الفرنسية</SelectItem>
+                      <SelectItem value="Spanish" className="text-lg">الإسبانية</SelectItem>
+                      <SelectItem value="German" className="text-lg">الألمانية</SelectItem>
                     </SelectContent>
                   </Select>
                   <FormMessage />
                 </FormItem>
               )}
             />
-            <Button type="submit" disabled={isLoading} className="w-full bg-accent hover:bg-accent/90 text-accent-foreground">
-              {isLoading && <Loader2 className="h-4 w-4 animate-spin" />}
+            <Button type="submit" disabled={isLoading} className="w-full bg-accent hover:bg-accent/90 text-accent-foreground py-7 text-xl rounded-lg shadow-lg transform hover:scale-105 transition-transform duration-300">
+              {isLoading && <Loader2 className="h-6 w-6 animate-spin" />}
               <span>احصل على التعريف</span>
             </Button>
           </form>
         </Form>
         {result && (
-          <div className="mt-8 space-y-4 animate-in fade-in duration-500">
-            <Card>
+          <div className="mt-10 space-y-6 animate-in fade-in duration-500">
+            <Card className="bg-background/50 rounded-lg">
               <CardHeader>
-                <CardTitle>التعريف المترجم</CardTitle>
+                <CardTitle className="text-xl text-primary">التعريف المترجم</CardTitle>
               </CardHeader>
               <CardContent>
-                <p>{result.translatedDefinition}</p>
+                <p className="text-lg">{result.translatedDefinition}</p>
               </CardContent>
             </Card>
-            <Card>
+            <Card className="bg-background/50 rounded-lg">
               <CardHeader>
-                <CardTitle>مثال على الاستخدام</CardTitle>
+                <CardTitle className="text-xl text-primary">مثال على الاستخدام</CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="italic">{result.exampleUsage}</p>
+                <p className="italic text-lg">{result.exampleUsage}</p>
               </CardContent>
             </Card>
           </div>

@@ -9,9 +9,12 @@ export default {
   ],
   theme: {
     extend: {
+      fontSize: {
+        base: '1.1rem',
+      },
       fontFamily: {
-        body: ['PT Sans', 'sans-serif'],
-        headline: ['PT Sans', 'sans-serif'],
+        body: ['Cairo', 'sans-serif'],
+        headline: ['Cairo', 'sans-serif'],
         code: ['monospace'],
       },
       colors: {

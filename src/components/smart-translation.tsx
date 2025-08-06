@@ -56,27 +56,27 @@ export function SmartTranslation() {
   };
 
   return (
-    <Card className="w-full border-2 border-primary/20 shadow-lg">
+    <Card className="w-full border-2 border-primary/20 shadow-xl rounded-xl">
       <CardHeader>
-        <CardTitle className="flex items-center gap-2 text-xl font-headline">
-          <Languages className="text-accent" />
+        <CardTitle className="flex items-center gap-3 text-2xl font-headline text-primary">
+          <Languages className="h-8 w-8 text-accent" />
           <span>الترجمة الذكية</span>
         </CardTitle>
-        <CardDescription>
+        <CardDescription className="text-lg text-muted-foreground pt-2">
           ترجم الجمل والنصوص الكاملة بدقة مع مراعاة السياق.
         </CardDescription>
       </CardHeader>
       <CardContent>
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
             <FormField
               control={form.control}
               name="text"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>النص المراد ترجمته</FormLabel>
+                  <FormLabel className="text-lg">النص المراد ترجمته</FormLabel>
                   <FormControl>
-                    <Textarea placeholder="أدخل النص هنا..." className="min-h-[150px]" {...field} />
+                    <Textarea placeholder="أدخل النص هنا..." className="min-h-[180px] text-lg" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -87,39 +87,39 @@ export function SmartTranslation() {
               name="targetLanguage"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>الترجمة إلى</FormLabel>
+                  <FormLabel className="text-lg">الترجمة إلى</FormLabel>
                   <Select onValueChange={field.onChange} defaultValue={field.value}>
                     <FormControl>
-                      <SelectTrigger>
+                      <SelectTrigger className="py-6 text-lg">
                         <SelectValue placeholder="اختر اللغة المستهدفة" />
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      <SelectItem value="Arabic">العربية</SelectItem>
-                      <SelectItem value="English">الإنجليزية</SelectItem>
-                      <SelectItem value="French">الفرنسية</SelectItem>
-                      <SelectItem value="Spanish">الإسبانية</SelectItem>
-                      <SelectItem value="German">الألمانية</SelectItem>
+                      <SelectItem value="Arabic" className="text-lg">العربية</SelectItem>
+                      <SelectItem value="English" className="text-lg">الإنجليزية</SelectItem>
+                      <SelectItem value="French" className="text-lg">الفرنسية</SelectItem>
+                      <SelectItem value="Spanish" className="text-lg">الإسبانية</SelectItem>
+                      <SelectItem value="German" className="text-lg">الألمانية</SelectItem>
                     </SelectContent>
                   </Select>
                   <FormMessage />
                 </FormItem>
               )}
             />
-            <Button type="submit" disabled={isLoading} className="w-full bg-accent hover:bg-accent/90 text-accent-foreground">
-              {isLoading && <Loader2 className="h-4 w-4 animate-spin" />}
+            <Button type="submit" disabled={isLoading} className="w-full bg-accent hover:bg-accent/90 text-accent-foreground py-7 text-xl rounded-lg shadow-lg transform hover:scale-105 transition-transform duration-300">
+              {isLoading && <Loader2 className="h-6 w-6 animate-spin" />}
               <span>ترجم النص</span>
             </Button>
           </form>
         </Form>
         {result && (
-          <div className="mt-8 space-y-4 animate-in fade-in duration-500">
-            <Card>
+          <div className="mt-10 space-y-4 animate-in fade-in duration-500">
+            <Card className="bg-background/50 rounded-lg">
               <CardHeader>
-                <CardTitle>النص المترجم</CardTitle>
+                <CardTitle className="text-xl text-primary">النص المترجم</CardTitle>
               </CardHeader>
               <CardContent>
-                <p>{result.translation}</p>
+                <p className="text-lg">{result.translation}</p>
               </CardContent>
             </Card>
           </div>
