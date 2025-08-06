@@ -15,7 +15,7 @@ export function SqlExtractor() {
   const [currentFile, setCurrentFile] = useState<File | null>(null);
   const [fileName, setFileName] = useState('');
   const [fileSize, setFileSize] = useState('');
-  const [extractedWords, setExtractedWords] = useState<string[]>([]);
+  const [lastExtractedWords, setLastExtractedWords] = useState<string[]>([]);
   const [processing, setProcessing] = useState(false);
   const [progress, setProgress] = useState(0);
   const [message, setMessage] = useState({ text: 'الرجاء اختيار ملف SQL ثم الضغط على زر بدء العملية', type: 'info' });
@@ -37,9 +37,11 @@ export function SqlExtractor() {
     try {
       const words = JSON.parse(localStorage.getItem('englishWords') || '[]');
       setSavedWords(words);
+      return words;
     } catch (error) {
       console.error('Error loading saved words:', error);
       showMessage('حدث خطأ أثناء تحميل الكلمات المحفوظة', 'error');
+      return [];
     }
   }, [showMessage]);
 
@@ -52,8 +54,13 @@ export function SqlExtractor() {
       const uniqueSavedWords = new Set([...currentSavedWords, ...wordsToSave]);
       const updatedWords = Array.from(uniqueSavedWords).sort();
       localStorage.setItem('englishWords', JSON.stringify(updatedWords));
+      const newWordsCount = updatedWords.length - currentSavedWords.length;
       loadSavedWords(); // Reload the saved words to update the UI
-      toast({ title: `تم حفظ ${wordsToSave.length} كلمة جديدة تلقائياً` });
+      if (newWordsCount > 0) {
+        toast({ title: `تم حفظ ${newWordsCount} كلمة فريدة جديدة بنجاح!` });
+      } else {
+        toast({ title: `لم يتم العثور على كلمات جديدة لحفظها.` });
+      }
     } catch (e) {
       toast({ title: 'فشل حفظ الكلمات تلقائياً', variant: 'destructive' });
     }
@@ -71,11 +78,11 @@ export function SqlExtractor() {
           break;
         case 'RESULT':
           const { words, stats } = payload;
-          setExtractedWords(words);
+          setLastExtractedWords(words);
           setStats(stats);
           setCurrentPageExtracted(1); // Reset to first page
           saveWordsToLocalStorage(words);
-          showMessage(`تم استخراج وحفظ ${words.length} كلمة إنجليزية بنجاح!`, 'success');
+          showMessage(`اكتمل الاستخراج! تم العثور على ${words.length} كلمة فريدة في هذا الملف.`, 'success');
           setProcessing(false);
           setProgress(100);
           setTimeout(() => setProgress(0), 2000);
@@ -109,8 +116,6 @@ export function SqlExtractor() {
       return;
     }
     
-    setExtractedWords([]);
-    setStats({ totalWords: 0, uniqueWords: 0, processingTime: 0 });
     setCurrentFile(file);
     setFileName(file.name);
     const formattedSize = (bytes: number) => {
@@ -155,7 +160,7 @@ export function SqlExtractor() {
 
     setProcessing(true);
     setProgress(0);
-    setExtractedWords([]);
+    setLastExtractedWords([]);
     setStats({ totalWords: 0, uniqueWords: 0, processingTime: 0 });
     showMessage('جاري إرسال الملف للمعالجة...', 'info');
 
@@ -163,9 +168,9 @@ export function SqlExtractor() {
   };
   
   const exportResults = () => {
-    const wordsToExport = extractedWords.length > 0 ? extractedWords : savedWords;
+    const wordsToExport = savedWords;
     if (wordsToExport.length === 0) {
-      toast({ title: 'لا توجد كلمات لتصديرها', variant: 'destructive' });
+      toast({ title: 'لا توجد كلمات محفوظة لتصديرها', variant: 'destructive' });
       return;
     }
     const content = wordsToExport.join('\n');
@@ -173,22 +178,21 @@ export function SqlExtractor() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = 'english_words.txt';
+    a.download = 'all_english_words.txt';
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
-    toast({ title: 'تم تصدير الكلمات بنجاح' });
+    toast({ title: 'تم تصدير جميع الكلمات المحفوظة بنجاح' });
   };
 
-  const clearResults = () => {
-    setExtractedWords([]);
-    setCurrentFile(null);
-    setFileName('');
-    setFileSize('');
+  const clearAllWords = () => {
+    setLastExtractedWords([]);
+    setSavedWords([]);
+    localStorage.removeItem('englishWords');
     if (fileInputRef.current) fileInputRef.current.value = '';
     setStats({ totalWords: 0, uniqueWords: 0, processingTime: 0 });
-    showMessage('تم مسح النتائج بنجاح', 'success');
+    showMessage('تم مسح جميع الكلمات المحفوظة والنتائج الحالية.', 'success');
   };
 
   const getMessageClasses = () => {
@@ -214,7 +218,7 @@ export function SqlExtractor() {
   };
   
   // Pagination logic
-  const paginatedExtractedWords = extractedWords.slice(
+  const paginatedLastExtractedWords = lastExtractedWords.slice(
     (currentPageExtracted - 1) * WORDS_PER_PAGE,
     currentPageExtracted * WORDS_PER_PAGE
   );
@@ -283,13 +287,13 @@ export function SqlExtractor() {
             <Card>
               <CardHeader>
                 <CardTitle className="text-3xl font-bold text-primary">{stats.totalWords}</CardTitle>
-                <p className="text-muted-foreground">عدد الكلمات المستخرجة</p>
+                <p className="text-muted-foreground">عدد الكلمات في آخر ملف</p>
               </CardHeader>
             </Card>
             <Card>
               <CardHeader>
                 <CardTitle className="text-3xl font-bold text-primary">{stats.uniqueWords}</CardTitle>
-                <p className="text-muted-foreground">الكلمات الفريدة</p>
+                <p className="text-muted-foreground">الكلمات الفريدة في آخر ملف</p>
               </CardHeader>
             </Card>
             <Card>
@@ -310,19 +314,11 @@ export function SqlExtractor() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="flex flex-col md:flex-row gap-4 mb-6">
-            <Button onClick={exportResults} disabled={extractedWords.length === 0} variant="secondary" className="flex-1">
-              <i className="fas fa-file-export mr-2"></i> تصدير الكلمات
-            </Button>
-            <Button onClick={clearResults} variant="destructive" className="flex-1">
-              <i className="fas fa-trash-alt mr-2"></i> مسح النتائج
-            </Button>
-          </div>
           <div className="min-h-[300px]">
-            {extractedWords.length > 0 ? (
+            {lastExtractedWords.length > 0 ? (
               <>
                 <div className="p-4 border rounded-lg bg-muted/50 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
-                  {paginatedExtractedWords.map((word, index) => (
+                  {paginatedLastExtractedWords.map((word, index) => (
                     <div key={index} className="bg-background p-2 rounded text-center shadow">
                       {word}
                     </div>
@@ -330,7 +326,7 @@ export function SqlExtractor() {
                 </div>
                  <Pagination
                   currentPage={currentPageExtracted}
-                  totalPages={Math.ceil(extractedWords.length / WORDS_PER_PAGE)}
+                  totalPages={Math.ceil(lastExtractedWords.length / WORDS_PER_PAGE)}
                   onPageChange={setCurrentPageExtracted}
                 />
               </>
@@ -343,9 +339,19 @@ export function SqlExtractor() {
       
       <Card className="w-full border-2 border-primary/20 shadow-xl rounded-xl">
         <CardHeader>
-          <CardTitle className="flex items-center gap-3 text-2xl font-headline text-primary">
-            <i className="fas fa-archive"></i>
-            <span>جميع الكلمات المحفوظة ({savedWords.length})</span>
+          <CardTitle className="flex items-center justify-center justify-between">
+            <div className='flex items-center gap-3 text-2xl font-headline text-primary'>
+              <i className="fas fa-archive"></i>
+              <span>جميع الكلمات المحفوظة ({savedWords.length})</span>
+            </div>
+            <div className='flex items-center gap-2'>
+               <Button onClick={exportResults} disabled={savedWords.length === 0} variant="secondary">
+                 <i className="fas fa-file-export mr-2"></i> تصدير الكل
+               </Button>
+               <Button onClick={clearAllWords} variant="destructive">
+                 <i className="fas fa-trash-alt mr-2"></i> مسح الكل
+               </Button>
+            </div>
           </CardTitle>
         </CardHeader>
         <CardContent>
