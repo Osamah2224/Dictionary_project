@@ -1,4 +1,3 @@
-'use server';
 // This is a Web Worker for processing words in the background.
 
 import { smartDictionary, type SmartDictionaryOutput } from '@/ai/flows/smart-dictionary';
@@ -14,32 +13,11 @@ export type ProcessorWorkerMessage =
 let isPaused = false;
 let isStopped = false;
 
-self.onmessage = async (event: MessageEvent<{ command: 'start' | 'pause' | 'stop' }>) => {
-  const { command } = event.data;
+// This is the main processing function.
+async function processWords() {
+  isPaused = false;
+  isStopped = false;
 
-  if (command === 'pause') {
-    isPaused = true;
-    return;
-  }
-  
-  if (command === 'stop') {
-    isStopped = true;
-    isPaused = false; // Ensure it doesn't stay paused
-    self.postMessage({ type: 'STOPPED' });
-    return;
-  }
-
-  if (command === 'start') {
-    if (isPaused) { // If it was paused, just resume.
-        isPaused = false;
-        return;
-    }
-    // If starting fresh, reset state.
-    isPaused = false;
-    isStopped = false;
-  }
-
-  // --- Main Processing Logic ---
   try {
     const wordsToProcess: string[] = JSON.parse(localStorage.getItem('englishWords') || '[]');
     const processedDictionary: Record<string, WordProcessorResult> = JSON.parse(localStorage.getItem('processedWordsDictionary') || '{}');
@@ -47,6 +25,7 @@ self.onmessage = async (event: MessageEvent<{ command: 'start' | 'pause' | 'stop
     const unprocessedWords = wordsToProcess.filter(word => !processedDictionary[word.toLowerCase()]);
     
     if (unprocessedWords.length === 0) {
+      self.postMessage({ type: 'PROGRESS', payload: { progress: 100, processed: 0, total: 0 } });
       self.postMessage({ type: 'DONE' });
       return;
     }
@@ -63,11 +42,12 @@ self.onmessage = async (event: MessageEvent<{ command: 'start' | 'pause' | 'stop
       }
       if (isStopped) {
         console.log("Processing stopped by user.");
-        break;
+        self.postMessage({ type: 'STOPPED' });
+        return;
       }
       
       try {
-        const result = await smartDictionary({ query: word, targetLanguage: 'English' });
+        const result = await smartDictionary({ query: word });
         
         const currentData = localStorage.getItem('processedWordsDictionary');
         const currentDictionary = currentData ? JSON.parse(currentData) : {};
@@ -78,6 +58,7 @@ self.onmessage = async (event: MessageEvent<{ command: 'start' | 'pause' | 'stop
 
       } catch (error) {
         console.error(`Failed to process word: ${word}`, error);
+        // Optional: Notify main thread of the error for this specific word
       } finally {
          processedCount++;
          const progress = total > 0 ? (processedCount / total) * 100 : 100;
@@ -91,5 +72,27 @@ self.onmessage = async (event: MessageEvent<{ command: 'start' | 'pause' | 'stop
 
   } catch (error) {
     console.error('Word processor worker error:', error);
+  }
+}
+
+
+self.onmessage = async (event: MessageEvent<{ command: 'start' | 'pause' | 'stop' }>) => {
+  const { command } = event.data;
+
+  switch (command) {
+    case 'start':
+      if (isPaused) {
+        isPaused = false; // Just resume
+      } else {
+        processWords(); // Start a new job
+      }
+      break;
+    case 'pause':
+      isPaused = true;
+      break;
+    case 'stop':
+      isStopped = true;
+      isPaused = false;
+      break;
   }
 };

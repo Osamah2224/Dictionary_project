@@ -39,7 +39,6 @@ export type SmartDictionaryOutput = z.infer<typeof SmartDictionaryOutputSchema>;
 
 const SmartDictionaryInputSchema = z.object({
   query: z.string().describe('The word or phrase to translate and define.'),
-  targetLanguage: z.string().describe('The target language for translation (this will typically be English to get the details).'),
 });
 export type SmartDictionaryInput = z.infer<typeof SmartDictionaryInputSchema>;
 
@@ -60,10 +59,10 @@ Provide the following details:
 2.  **arabicMeaning**: The most common and accurate Arabic translation.
 3.  **definition**: A clear, concise English definition.
 4.  **partOfSpeech**: The primary grammatical category (e.g., Verb, Noun, Adjective).
-5.  **derivatives**: A list of related words (e.g., if the word is 'decide', a derivative is 'decision'). Include their part of speech and Arabic meaning.
+5.  **derivatives**: A list of related words (e.g., if the word is 'decide', a derivative is 'decision'). Include their part of speech and Arabic meaning. If none, return an empty array.
 6.  **conjugation**: If the word is a verb, provide its main conjugations: Infinitive, Past Tense, and Past Participle, along with their Arabic meanings. If it's not a verb, return an empty array.
-7.  **synonyms**: A list of at least 2-3 common synonyms with their Arabic meanings.
-8.  **antonyms**: A list of at least 2-3 common antonyms with their Arabic meanings.
+7.  **synonyms**: A list of at least 2-3 common synonyms with their Arabic meanings. If none, return an empty array.
+8.  **antonyms**: A list of at least 2-3 common antonyms with their Arabic meanings. If none, return an empty array.
 `,
 });
 
@@ -81,5 +80,3 @@ const smartDictionaryFlow = ai.defineFlow(
     return output;
   }
 );
-
-    

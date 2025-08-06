@@ -59,7 +59,7 @@ export function SmartDictionary() {
       if (storedData) {
         const dictionary = JSON.parse(storedData);
         const wordsArray = Object.values(dictionary) as WordProcessorResult[];
-        setProcessedWords(wordsArray);
+        setProcessedWords(wordsArray.sort((a,b) => a.word.localeCompare(b.word)));
       }
     } catch (error) {
       console.error("Failed to load processed words:", error);
@@ -87,13 +87,14 @@ export function SmartDictionary() {
         loadProcessedWords();
       } else if(type === 'WORD_PROCESSED'){
         // Add new word to the list in real-time
-        setProcessedWords(prev => [...prev, payload]);
+        setProcessedWords(prev => [...prev, payload].sort((a,b) => a.word.localeCompare(b.word)));
       }
     };
     
     return () => {
       workerRef.current?.terminate();
     };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [toast]);
   
 
@@ -115,7 +116,7 @@ export function SmartDictionary() {
       }
 
       // 2. If not found, call AI
-      const aiResult = await smartDictionary({ query: query, targetLanguage: 'English' });
+      const aiResult = await smartDictionary({ query: query });
       setResult(aiResult);
       
       // 3. Save the new result to local storage
@@ -159,6 +160,7 @@ export function SmartDictionary() {
   const handleWordClick = (wordData: WordProcessorResult) => {
     form.setValue('query', wordData.word);
     setResult(wordData);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const paginatedProcessedWords = processedWords.slice(
@@ -277,63 +279,73 @@ export function SmartDictionary() {
                         <CardContent><p className="text-lg">{result.partOfSpeech}</p></CardContent>
                     </Card>
                     
-                    <Card>
-                        <CardHeader><CardTitle className="flex items-center gap-2 text-xl"><List className="text-primary" /><span>Derivatives / المشتقات</span></CardTitle></CardHeader>
-                        <CardContent>
-                            <Table>
-                                <TableHeader><TableRow><TableHead>Word</TableHead><TableHead>Type</TableHead><TableHead>Arabic Meaning</TableHead></TableRow></TableHeader>
-                                <TableBody>
-                                    {result.derivatives.map((item, index) => (
-                                        <TableRow key={index}><TableCell>{item.word}</TableCell><TableCell>{item.partOfSpeech}</TableCell><TableCell>{item.meaning}</TableCell></TableRow>
-                                    ))}
-                                </TableBody>
-                            </Table>
-                        </CardContent>
-                    </Card>
+                    {result.derivatives && result.derivatives.length > 0 && (
+                      <Card>
+                          <CardHeader><CardTitle className="flex items-center gap-2 text-xl"><List className="text-primary" /><span>Derivatives / المشتقات</span></CardTitle></CardHeader>
+                          <CardContent>
+                              <Table>
+                                  <TableHeader><TableRow><TableHead>Word</TableHead><TableHead>Type</TableHead><TableHead>Arabic Meaning</TableHead></TableRow></TableHeader>
+                                  <TableBody>
+                                      {result.derivatives.map((item, index) => (
+                                          <TableRow key={index}><TableCell>{item.word}</TableCell><TableCell>{item.partOfSpeech}</TableCell><TableCell>{item.meaning}</TableCell></TableRow>
+                                      ))}
+                                  </TableBody>
+                              </Table>
+                          </CardContent>
+                      </Card>
+                    )}
                 </div>
 
                 <div className="space-y-8">
-                    <Card>
-                        <CardHeader><CardTitle className="flex items-center gap-2 text-xl"><Repeat className="text-primary" /><span>Conjugation / تصريف الفعل</span></CardTitle></CardHeader>
-                        <CardContent>
-                            <Table>
-                                <TableHeader><TableRow><TableHead>Tense</TableHead><TableHead>Form</TableHead><TableHead>Arabic Meaning</TableHead></TableRow></TableHeader>
-                                <TableBody>
-                                    {result.conjugation.map((item, index) => (
-                                        <TableRow key={index}><TableCell>{item.tense}</TableCell><TableCell>{item.form}</TableCell><TableCell>{item.meaning}</TableCell></TableRow>
-                                    ))}
-                                </TableBody>
-                            </Table>
-                        </CardContent>
-                    </Card>
+                    {result.conjugation && result.conjugation.length > 0 && (
+                      <Card>
+                          <CardHeader><CardTitle className="flex items-center gap-2 text-xl"><Repeat className="text-primary" /><span>Conjugation / تصريف الفعل</span></CardTitle></CardHeader>
+                          <CardContent>
+                              <Table>
+                                  <TableHeader><TableRow><TableHead>Tense</TableHead><TableHead>Form</TableHead><TableHead>Arabic Meaning</TableHead></TableRow></TableHeader>
+                                  <TableBody>
+                                      {result.conjugation.map((item, index) => (
+                                          <TableRow key={index}><TableCell>{item.tense}</TableCell><TableCell>{item.form}</TableCell><TableCell>{item.meaning}</TableCell></TableRow>
+                                      ))}
+                                  </TableBody>
+                              </Table>
+                          </CardContent>
+                      </Card>
+                    )}
 
-                     <Card>
+                    {(result.synonyms?.length > 0 || result.antonyms?.length > 0) && (
+                      <Card>
                         <CardHeader><CardTitle className="flex items-center gap-2 text-xl"><ChevronsUpDown className="text-primary" /><span>Synonyms & Antonyms / المرادفات والتضاد</span></CardTitle></CardHeader>
                         <CardContent>
                              <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                    <h4 className="font-semibold text-lg mb-2 text-green-600">Synonyms</h4>
-                                    <Table>
-                                        <TableBody>
-                                            {result.synonyms.map((item, index) => (
-                                                <TableRow key={index}><TableCell className="p-2">{item.word}</TableCell></TableRow>
-                                            ))}
-                                        </TableBody>
-                                    </Table>
-                                </div>
-                                <div>
-                                    <h4 className="font-semibold text-lg mb-2 text-red-600">Antonyms</h4>
-                                    <Table>
-                                        <TableBody>
-                                            {result.antonyms.map((item, index) => (
-                                                <TableRow key={index}><TableCell className="p-2">{item.word}</TableCell></TableRow>
-                                            ))}
-                                        </TableBody>
-                                    </Table>
-                                </div>
+                                {result.synonyms && result.synonyms.length > 0 && (
+                                  <div>
+                                      <h4 className="font-semibold text-lg mb-2 text-green-600">Synonyms</h4>
+                                      <Table>
+                                          <TableBody>
+                                              {result.synonyms.map((item, index) => (
+                                                  <TableRow key={index}><TableCell className="p-2">{item.word}</TableCell></TableRow>
+                                              ))}
+                                          </TableBody>
+                                      </Table>
+                                  </div>
+                                )}
+                                {result.antonyms && result.antonyms.length > 0 && (
+                                  <div>
+                                      <h4 className="font-semibold text-lg mb-2 text-red-600">Antonyms</h4>
+                                      <Table>
+                                          <TableBody>
+                                              {result.antonyms.map((item, index) => (
+                                                  <TableRow key={index}><TableCell className="p-2">{item.word}</TableCell></TableRow>
+                                              ))}
+                                          </TableBody>
+                                      </Table>
+                                  </div>
+                                )}
                             </div>
                         </CardContent>
-                    </Card>
+                      </Card>
+                    )}
                 </div>
             </div>
           </div>
@@ -379,5 +391,3 @@ export function SmartDictionary() {
   </>
   );
 }
-
-    
