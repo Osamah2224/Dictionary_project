@@ -248,9 +248,9 @@ export function SmartDictionary() {
                   </DialogDescription>
                 </DialogHeader>
                 <div className='space-y-4 py-4'>
-                  <div className='flex items-center justify-between'>
-                    <span className='font-medium'>الكلمات المعالجة:</span>
-                    <span className='font-bold text-primary'>{processedCount} / {totalWordsToProcess}</span>
+                   <div className='text-center'>
+                    <span className='font-bold text-lg text-primary'>{processedCount}</span>
+                    <span className='text-muted-foreground'> / {totalWordsToProcess} كلمة تمت معالجتها</span>
                   </div>
                   <Progress value={progress} />
                    <p className='text-sm text-center text-muted-foreground'>
@@ -328,7 +328,7 @@ export function SmartDictionary() {
                     </Card>
 
                     <Card>
-                        <CardHeader><BilingualTitle en="Part of Speech" ar="التصنيف" icon={<Type className="text-primary" />} /></CardHeader>
+                        <CardHeader><BilingualTitle en="Part of Speech" ar="نوع الكلمة" icon={<Type className="text-primary" />} /></CardHeader>
                         <CardContent><p className="text-lg">{result.partOfSpeech}</p></CardContent>
                     </Card>
                     
@@ -383,7 +383,7 @@ export function SmartDictionary() {
                                   <div>
                                       <h4 className="font-semibold text-lg mb-2 text-green-600">Synonyms <span className="text-muted-foreground text-sm">/ مرادفات</span></h4>
                                       <Table>
-                                          <TableHeader><TableRow>
+                                           <TableHeader><TableRow>
                                                 <TableHead>Word <span className="text-muted-foreground text-sm">/ الكلمة</span></TableHead>
                                                 <TableHead>Meaning <span className="text-muted-foreground text-sm">/ المعنى</span></TableHead>
                                           </TableRow></TableHeader>

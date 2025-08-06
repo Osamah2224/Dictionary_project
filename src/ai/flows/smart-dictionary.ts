@@ -11,6 +11,12 @@
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
 
+const SmartDictionaryInputSchema = z.object({
+  query: z.string().describe('The word or phrase to translate and define.'),
+});
+export type SmartDictionaryInput = z.infer<typeof SmartDictionaryInputSchema>;
+
+
 const SmartDictionaryOutputSchema = z.object({
   word: z.string().describe("The English word that was looked up."),
   arabicMeaning: z.string().describe("The Arabic translation of the word."),
@@ -37,11 +43,6 @@ const SmartDictionaryOutputSchema = z.object({
 });
 export type SmartDictionaryOutput = z.infer<typeof SmartDictionaryOutputSchema>;
 
-const SmartDictionaryInputSchema = z.object({
-  query: z.string().describe('The word or phrase to translate and define.'),
-});
-export type SmartDictionaryInput = z.infer<typeof SmartDictionaryInputSchema>;
-
 
 export async function smartDictionary(input: SmartDictionaryInput): Promise<SmartDictionaryOutput> {
   return smartDictionaryFlow(input);
@@ -59,23 +60,23 @@ First, determine if the query is in English or Arabic.
 If the query is in English:
 - The 'word' field in your output should be the English query.
 - The 'arabicMeaning' field should be its most accurate Arabic translation.
-- Then, fill out all the other fields (definition, partOfSpeech, derivatives, etc.) for the English word. Ensure the partOfSpeech is very accurate.
+- Then, fill out all the other fields (definition, partOfSpeech, derivatives, etc.) for the English word. Ensure the partOfSpeech is very accurate. For every derivative, conjugation, synonym, and antonym, you MUST provide its Arabic meaning in the 'meaning' field.
 
 If the query is in Arabic:
 - First, find the most common and direct English translation for the Arabic query.
 - The 'word' field in your output MUST be this English translation.
 - The 'arabicMeaning' field in your output MUST be the original Arabic query.
-- Then, perform the full analysis for the translated ENGLISH word and fill out all the other fields (definition, partOfSpeech, derivatives, etc.). Ensure the partOfSpeech is very accurate.
+- Then, perform the full analysis for the translated ENGLISH word and fill out all the other fields (definition, partOfSpeech, derivatives, etc.). Ensure the partOfSpeech is very accurate. For every derivative, conjugation, synonym, and antonym, you MUST provide its Arabic meaning in the 'meaning' field.
 
 Provide the following details for the English word:
 1.  **word**: The English word, correctly capitalized.
 2.  **arabicMeaning**: The Arabic translation.
 3.  **definition**: A clear, concise English definition.
 4.  **partOfSpeech**: The primary grammatical category (e.g., Verb, Noun, Adjective). Be very accurate.
-5.  **derivatives**: A list of related words. If none, return an empty array.
-6.  **conjugation**: If the word is a verb, provide its main conjugations. If it's not a verb, return an empty array.
-7.  **synonyms**: A list of at least 2-3 common synonyms. If none, return an empty array.
-8.  **antonyms**: A list of at least 2-3 common antonyms. If none, return an empty array.
+5.  **derivatives**: A list of related words with their Arabic meanings. If none, return an empty array.
+6.  **conjugation**: If the word is a verb, provide its main conjugations with their Arabic meanings. If it's not a verb, return an empty array.
+7.  **synonyms**: A list of at least 2-3 common synonyms with their Arabic meanings. If none, return an empty array.
+8.  **antonyms**: A list of at least 2-3 common antonyms with their Arabic meanings. If none, return an empty array.
 `,
 });
 
