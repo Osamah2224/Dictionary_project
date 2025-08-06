@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useForm, type SubmitHandler } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { BookMarked, Loader2 } from 'lucide-react';
+import { BookMarked, Loader2, Database } from 'lucide-react';
 
 import { smartDictionary, type SmartDictionaryInput } from '@/ai/flows/smart-dictionary';
 import { Button } from '@/components/ui/button';
@@ -13,6 +13,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
+import Link from 'next/link';
 
 const FormSchema = z.object({
   query: z.string().min(1, 'الرجاء إدخال كلمة أو عبارة.'),
@@ -59,10 +60,17 @@ export function SmartDictionary() {
   return (
     <Card className="w-full border-2 border-primary/20 shadow-xl rounded-xl">
       <CardHeader>
-        <CardTitle className="flex items-center gap-3 text-2xl font-headline text-primary">
-          <BookMarked className="h-8 w-8 text-accent" />
-          <span>القاموس الذكي</span>
-        </CardTitle>
+        <div className="flex items-center justify-between">
+          <CardTitle className="flex items-center gap-3 text-2xl font-headline text-primary">
+            <BookMarked className="h-8 w-8 text-accent" />
+            <span>القاموس الذكي</span>
+          </CardTitle>
+          <Button asChild variant="outline" size="icon" className="group" title="مستخرج الكلمات من ملف SQL">
+             <Link href="/sql-extractor">
+                <Database className="h-6 w-6 text-primary group-hover:text-accent-foreground" />
+             </Link>
+          </Button>
+        </div>
         <CardDescription className="text-lg text-muted-foreground pt-2">
           أدخل كلمة أو عبارة واحصل على تعريفها المترجم ومثال على استخدامها في السياق.
         </CardDescription>

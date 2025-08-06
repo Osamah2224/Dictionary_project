@@ -3,10 +3,9 @@ import { SmartDictionary } from '@/components/smart-dictionary';
 import { SmartTranslation } from '@/components/smart-translation';
 import { AboutMe } from '@/components/about-me';
 import { ThemeToggle } from '@/components/theme-toggle';
-import { Languages, User, Database, Bot, ExternalLink } from 'lucide-react';
+import { Languages, User, BookMarked, Database } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 
 export default function Home() {
   return (
@@ -19,49 +18,26 @@ export default function Home() {
           <ThemeToggle />
         </header>
         <main>
-          <Tabs defaultValue="smart-tools" className="w-full">
+          <Tabs defaultValue="smart-dictionary" className="w-full">
             <TabsList className="flex justify-center flex-wrap w-full bg-transparent p-0 gap-6 mb-8">
-              <TabsTrigger value="smart-tools" className="text-lg md:text-xl py-3 px-6 rounded-lg shadow-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-2xl transition-all duration-300 transform hover:-translate-y-1">
-                <Bot className="ml-2 h-5 w-5" />
-                الأدوات الذكية
+              <TabsTrigger value="smart-dictionary" className="text-lg md:text-xl py-3 px-6 rounded-lg shadow-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-2xl transition-all duration-300 transform hover:-translate-y-1">
+                <BookMarked className="ml-2 h-5 w-5" />
+                القاموس الذكي
               </TabsTrigger>
-              <TabsTrigger value="sql-extractor" className="text-lg md:text-xl py-3 px-6 rounded-lg shadow-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-2xl transition-all duration-300 transform hover:-translate-y-1">
-                 <Database className="ml-2 h-5 w-5" />
-                مستخرج الكلمات
+              <TabsTrigger value="smart-translation" className="text-lg md:text-xl py-3 px-6 rounded-lg shadow-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-2xl transition-all duration-300 transform hover:-translate-y-1">
+                <Languages className="ml-2 h-5 w-5" />
+                الترجمة الذكية
               </TabsTrigger>
               <TabsTrigger value="about" className="text-lg md:text-xl py-3 px-6 rounded-lg shadow-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-2xl transition-all duration-300 transform hover:-translate-y-1">
                 <User className="ml-2 h-5 w-5" />
                 أ. اسامة العُمري
               </TabsTrigger>
             </TabsList>
-            <TabsContent value="smart-tools" className="mt-8">
-              <div className="flex flex-col gap-8">
-                <SmartDictionary />
-                <SmartTranslation />
-              </div>
+            <TabsContent value="smart-dictionary" className="mt-8">
+              <SmartDictionary />
             </TabsContent>
-            <TabsContent value="sql-extractor" className="mt-8">
-               <Card className="w-full border-2 border-primary/20 shadow-xl rounded-xl text-center">
-                <CardHeader>
-                  <div className="flex justify-center mb-4">
-                    <Database className="h-16 w-16 text-primary"/>
-                  </div>
-                  <CardTitle className="text-3xl font-headline font-bold text-primary">
-                    مستخرج الكلمات من ملفات SQL
-                  </CardTitle>
-                   <CardDescription className="text-lg text-muted-foreground pt-4 max-w-2xl mx-auto">
-                    أداة قوية للمطورين والمترجمين لاستخراج جميع الكلمات الإنجليزية بشكل منظم من ملفات قواعد البيانات، مما يسهل عملية ترجمتها ومراجعتها.
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <Button asChild size="lg" className="bg-primary hover:bg-primary/90 text-primary-foreground py-7 text-xl rounded-lg shadow-lg transform hover:scale-105 transition-transform duration-300">
-                    <Link href="/sql-extractor">
-                      <ExternalLink className="ml-2 h-5 w-5" />
-                      الانتقال إلى صفحة مستخرج الكلمات
-                    </Link>
-                  </Button>
-                </CardContent>
-              </Card>
+            <TabsContent value="smart-translation" className="mt-8">
+              <SmartTranslation />
             </TabsContent>
             <TabsContent value="about" className="mt-8">
               <AboutMe />
