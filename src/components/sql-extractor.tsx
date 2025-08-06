@@ -22,6 +22,36 @@ export function SqlExtractor() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const workerRef = useRef<Worker>();
 
+  const showMessage = useCallback((text: string, type: 'info' | 'success' | 'error') => {
+    setMessage({ text, type });
+  }, []);
+
+  const loadSavedWords = useCallback(() => {
+    try {
+      const words = JSON.parse(localStorage.getItem('englishWords') || '[]');
+      setSavedWords(words);
+    } catch (error) {
+      console.error('Error loading saved words:', error);
+      showMessage('حدث خطأ أثناء تحميل الكلمات المحفوظة', 'error');
+    }
+  }, [showMessage]);
+
+  const saveWordsToLocalStorage = useCallback((wordsToSave: string[]) => {
+    if (wordsToSave.length === 0) {
+      return;
+    }
+    try {
+      const currentSavedWords = JSON.parse(localStorage.getItem('englishWords') || '[]');
+      const uniqueSavedWords = new Set([...currentSavedWords, ...wordsToSave]);
+      const updatedWords = Array.from(uniqueSavedWords).sort();
+      localStorage.setItem('englishWords', JSON.stringify(updatedWords));
+      loadSavedWords(); // Reload the saved words to update the UI
+      toast({ title: `تم حفظ ${wordsToSave.length} كلمة جديدة تلقائياً` });
+    } catch (e) {
+      toast({ title: 'فشل حفظ الكلمات تلقائياً', variant: 'destructive' });
+    }
+  }, [loadSavedWords, toast]);
+
   useEffect(() => {
     workerRef.current = new Worker(new URL('../workers/sql-extractor.worker.ts', import.meta.url));
 
@@ -36,7 +66,8 @@ export function SqlExtractor() {
           const { words, stats } = payload;
           setExtractedWords(words);
           setStats(stats);
-          showMessage(`تم استخراج ${words.length} كلمة إنجليزية بنجاح!`, 'success');
+          saveWordsToLocalStorage(words);
+          showMessage(`تم استخراج وحفظ ${words.length} كلمة إنجليزية بنجاح!`, 'success');
           setProcessing(false);
           setProgress(100);
           setTimeout(() => setProgress(0), 2000);
@@ -52,21 +83,7 @@ export function SqlExtractor() {
     return () => {
       workerRef.current?.terminate();
     };
-  }, []);
-
-  const showMessage = useCallback((text: string, type: 'info' | 'success' | 'error') => {
-    setMessage({ text, type });
-  }, []);
-
-  const loadSavedWords = useCallback(() => {
-    try {
-      const words = JSON.parse(localStorage.getItem('englishWords') || '[]');
-      setSavedWords(words);
-    } catch (error) {
-      console.error('Error loading saved words:', error);
-      showMessage('حدث خطأ أثناء تحميل الكلمات المحفوظة', 'error');
-    }
-  }, [showMessage]);
+  }, [saveWordsToLocalStorage, showMessage]);
 
   useEffect(() => {
     loadSavedWords();
@@ -137,23 +154,6 @@ export function SqlExtractor() {
     workerRef.current?.postMessage({ file: currentFile });
   };
   
-  const saveResults = () => {
-    if (extractedWords.length === 0) {
-      toast({ title: 'لا توجد كلمات لحفظها', variant: 'destructive' });
-      return;
-    }
-    try {
-      const currentSavedWords = JSON.parse(localStorage.getItem('englishWords') || '[]');
-      const uniqueSavedWords = new Set([...currentSavedWords, ...extractedWords]);
-      const updatedWords = Array.from(uniqueSavedWords).sort();
-      localStorage.setItem('englishWords', JSON.stringify(updatedWords));
-      loadSavedWords();
-      toast({ title: `تم حفظ ${extractedWords.length} كلمة بنجاح` });
-    } catch (e) {
-      toast({ title: 'فشل حفظ الكلمات', variant: 'destructive' });
-    }
-  };
-
   const exportResults = () => {
     if (extractedWords.length === 0) {
       toast({ title: 'لا توجد كلمات لتصديرها', variant: 'destructive' });
@@ -290,9 +290,6 @@ export function SqlExtractor() {
         </CardHeader>
         <CardContent>
           <div className="flex flex-col md:flex-row gap-4 mb-6">
-            <Button onClick={saveResults} disabled={extractedWords.length === 0} className="flex-1">
-              <i className="fas fa-save mr-2"></i> حفظ النتائج
-            </Button>
             <Button onClick={exportResults} disabled={extractedWords.length === 0} variant="secondary" className="flex-1">
               <i className="fas fa-file-export mr-2"></i> تصدير الكلمات
             </Button>
