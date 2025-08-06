@@ -18,7 +18,7 @@ export default function Home() {
         </header>
         <main>
           <Tabs defaultValue="smart-dictionary" className="w-full">
-            <TabsList className="flex justify-center flex-wrap w-full bg-transparent p-0 gap-6 mb-8">
+            <TabsList className="flex justify-center w-full bg-transparent p-0 gap-6 mb-8">
               <TabsTrigger value="smart-dictionary" className="text-lg md:text-xl py-3 px-6 rounded-lg shadow-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-2xl transition-all duration-300 transform hover:-translate-y-1">
                 <BookMarked className="ml-2 h-5 w-5" />
                 القاموس الذكي
