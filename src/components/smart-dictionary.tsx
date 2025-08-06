@@ -177,6 +177,13 @@ export function SmartDictionary() {
     currentPage * WORDS_PER_PAGE
   );
 
+  const BilingualTitle = ({ en, ar, icon }: { en: string; ar: string; icon: React.ReactNode }) => (
+    <CardTitle className="flex items-center gap-3 text-xl">
+      {icon}
+      <span>{en} <span className="text-muted-foreground text-lg">/ {ar}</span></span>
+    </CardTitle>
+  );
+
 
   return (
     <>
@@ -204,23 +211,23 @@ export function SmartDictionary() {
                   </DialogDescription>
                 </DialogHeader>
                 <div className='space-y-4 py-4'>
+                  <div className='flex items-center justify-between'>
+                    <span className='font-medium'>الكلمات المعالجة:</span>
+                    <span className='font-bold text-primary'>{processedCount} / {totalWordsToProcess}</span>
+                  </div>
+                  <Progress value={progress} />
                    <p className='text-sm text-center text-muted-foreground'>
                     {processingStatus === 'running' && 'جاري المعالجة...'}
                     {processingStatus === 'paused' && 'متوقف مؤقتاً.'}
                     {processingStatus === 'stopped' && 'تم الإيقاف.'}
                     {processingStatus === 'idle' && 'في وضع الاستعداد.'}
                   </p>
-                  <div className='flex items-center justify-between'>
-                    <span className='font-medium'>الكلمات المعالجة:</span>
-                    <span className='font-bold text-primary'>{processedCount} / {totalWordsToProcess}</span>
-                  </div>
-                  <Progress value={progress} />
                 </div>
                 <DialogFooter className='gap-2'>
                   <Button onClick={stopProcessing} variant="destructive" disabled={processingStatus !== 'running' && processingStatus !== 'paused'}>
                     <Square className="ml-2 h-4 w-4" /> إيقاف نهائي
                   </Button>
-                  <Button onClick={handleProcessorControl} disabled={processingStatus === 'stopped'} className='w-32'>
+                  <Button onClick={handleProcessorControl} disabled={totalWordsToProcess > 0 && processedCount === totalWordsToProcess} className='w-32'>
                     {processingStatus === 'running' ? <><Pause className="ml-2 h-4 w-4" /> إيقاف مؤقت</> : <><Play className="ml-2 h-4 w-4" /> بدء/استئناف</>}
                   </Button>
                 </DialogFooter>
@@ -279,21 +286,25 @@ export function SmartDictionary() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 <div className="space-y-8">
                     <Card>
-                        <CardHeader><CardTitle className="flex items-center gap-2 text-xl"><BookMarked className="text-primary" /><span>Definition / التعريف</span></CardTitle></CardHeader>
+                        <CardHeader><BilingualTitle en="Definition" ar="التعريف" icon={<BookMarked className="text-primary" />} /></CardHeader>
                         <CardContent><p className="text-lg leading-relaxed">{result.definition}</p></CardContent>
                     </Card>
 
                     <Card>
-                        <CardHeader><CardTitle className="flex items-center gap-2 text-xl"><Type className="text-primary" /><span>Part of Speech / التصنيف</span></CardTitle></CardHeader>
+                        <CardHeader><BilingualTitle en="Part of Speech" ar="التصنيف" icon={<Type className="text-primary" />} /></CardHeader>
                         <CardContent><p className="text-lg">{result.partOfSpeech}</p></CardContent>
                     </Card>
                     
                     {result.derivatives && result.derivatives.length > 0 && (
                       <Card>
-                          <CardHeader><CardTitle className="flex items-center gap-2 text-xl"><List className="text-primary" /><span>Derivatives / المشتقات</span></CardTitle></CardHeader>
+                          <CardHeader><BilingualTitle en="Derivatives" ar="المشتقات" icon={<List className="text-primary" />} /></CardHeader>
                           <CardContent>
                               <Table>
-                                  <TableHeader><TableRow><TableHead>Word</TableHead><TableHead>Type</TableHead><TableHead>Arabic Meaning</TableHead></TableRow></TableHeader>
+                                  <TableHeader><TableRow>
+                                    <TableHead>Word <span className="text-muted-foreground text-sm">/ الكلمة</span></TableHead>
+                                    <TableHead>Type <span className="text-muted-foreground text-sm">/ النوع</span></TableHead>
+                                    <TableHead>Arabic Meaning <span className="text-muted-foreground text-sm">/ المعنى</span></TableHead>
+                                  </TableRow></TableHeader>
                                   <TableBody>
                                       {result.derivatives.map((item, index) => (
                                           <TableRow key={index}><TableCell>{item.word}</TableCell><TableCell>{item.partOfSpeech}</TableCell><TableCell>{item.meaning}</TableCell></TableRow>
@@ -308,10 +319,14 @@ export function SmartDictionary() {
                 <div className="space-y-8">
                     {result.conjugation && result.conjugation.length > 0 && (
                       <Card>
-                          <CardHeader><CardTitle className="flex items-center gap-2 text-xl"><Repeat className="text-primary" /><span>Conjugation / تصريف الفعل</span></CardTitle></CardHeader>
+                          <CardHeader><BilingualTitle en="Conjugation" ar="تصريف الفعل" icon={<Repeat className="text-primary" />} /></CardHeader>
                           <CardContent>
                               <Table>
-                                  <TableHeader><TableRow><TableHead>Tense</TableHead><TableHead>Form</TableHead><TableHead>Arabic Meaning</TableHead></TableRow></TableHeader>
+                                  <TableHeader><TableRow>
+                                    <TableHead>Tense <span className="text-muted-foreground text-sm">/ الزمن</span></TableHead>
+                                    <TableHead>Form <span className="text-muted-foreground text-sm">/ الصيغة</span></TableHead>
+                                    <TableHead>Arabic Meaning <span className="text-muted-foreground text-sm">/ المعنى</span></TableHead>
+                                  </TableRow></TableHeader>
                                   <TableBody>
                                       {result.conjugation.map((item, index) => (
                                           <TableRow key={index}><TableCell>{item.tense}</TableCell><TableCell>{item.form}</TableCell><TableCell>{item.meaning}</TableCell></TableRow>
@@ -324,16 +339,19 @@ export function SmartDictionary() {
 
                     {(result.synonyms?.length > 0 || result.antonyms?.length > 0) && (
                       <Card>
-                        <CardHeader><CardTitle className="flex items-center gap-2 text-xl"><ChevronsUpDown className="text-primary" /><span>Synonyms & Antonyms / المرادفات والتضاد</span></CardTitle></CardHeader>
+                        <CardHeader><BilingualTitle en="Synonyms & Antonyms" ar="المرادفات والتضاد" icon={<ChevronsUpDown className="text-primary" />} /></CardHeader>
                         <CardContent>
                              <div className="grid grid-cols-2 gap-4">
                                 {result.synonyms && result.synonyms.length > 0 && (
                                   <div>
-                                      <h4 className="font-semibold text-lg mb-2 text-green-600">Synonyms</h4>
+                                      <h4 className="font-semibold text-lg mb-2 text-green-600">Synonyms <span className="text-muted-foreground text-sm">/ مرادفات</span></h4>
                                       <Table>
                                           <TableBody>
                                               {result.synonyms.map((item, index) => (
-                                                  <TableRow key={index}><TableCell className="p-2">{item.word}</TableCell></TableRow>
+                                                  <TableRow key={index}>
+                                                    <TableCell className="p-2">{item.word}</TableCell>
+                                                    <TableCell className="p-2 text-muted-foreground">{item.meaning}</TableCell>
+                                                  </TableRow>
                                               ))}
                                           </TableBody>
                                       </Table>
@@ -341,11 +359,14 @@ export function SmartDictionary() {
                                 )}
                                 {result.antonyms && result.antonyms.length > 0 && (
                                   <div>
-                                      <h4 className="font-semibold text-lg mb-2 text-red-600">Antonyms</h4>
+                                      <h4 className="font-semibold text-lg mb-2 text-red-600">Antonyms <span className="text-muted-foreground text-sm">/ متضادات</span></h4>
                                       <Table>
                                           <TableBody>
                                               {result.antonyms.map((item, index) => (
-                                                  <TableRow key={index}><TableCell className="p-2">{item.word}</TableCell></TableRow>
+                                                  <TableRow key={index}>
+                                                    <TableCell className="p-2">{item.word}</TableCell>
+                                                    <TableCell className="p-2 text-muted-foreground">{item.meaning}</TableCell>
+                                                  </TableRow>
                                               ))}
                                           </TableBody>
                                       </Table>
@@ -400,5 +421,3 @@ export function SmartDictionary() {
   </>
   );
 }
-
-    
