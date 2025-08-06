@@ -19,6 +19,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Progress } from '@/components/ui/progress';
 import { Pagination } from './pagination';
 import type { ProcessorWorkerMessage, WordProcessorResult } from '@/workers/word-processor.worker';
+import { useActivityLog } from '@/hooks/use-activity-log';
 
 const FormSchema = z.object({
   query: z.string().min(1, 'الرجاء إدخال كلمة أو عبارة.'),
@@ -59,6 +60,7 @@ export function SmartDictionary() {
   const [result, setResult] = useState<ResultState>(null);
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
+  const { logActivity } = useActivityLog();
   
   const form = useForm<FormValues>({
     resolver: zodResolver(FormSchema),
@@ -151,19 +153,25 @@ export function SmartDictionary() {
   const onSubmit: SubmitHandler<FormValues> = async (data) => {
     setIsLoading(true);
     setResult(null);
-    const query = data.query.trim().toLowerCase();
+    const query = data.query.trim();
+    if (!query) {
+        setIsLoading(false);
+        return;
+    }
+    const lowerCaseQuery = query.toLowerCase();
+
     try {
       const storedData = localStorage.getItem('processedWordsDictionary');
       if (storedData) {
         const dictionary: Record<string, WordProcessorResult> = JSON.parse(storedData);
         // Search by English word (key) or Arabic meaning (value)
         const foundEntry = Object.values(dictionary).find(
-            entry => entry.word.toLowerCase() === query || entry.arabicMeaning.toLowerCase() === query
+            entry => entry.word.toLowerCase() === lowerCaseQuery || entry.arabicMeaning.toLowerCase() === lowerCaseQuery
         );
 
         if (foundEntry) {
           setResult(foundEntry);
-          setIsLoading(false);
+          logActivity({ tool: 'القاموس الذكي', query: query });
           toast({ title: "تم العثور على الكلمة في القاموس المحلي" });
           return;
         }
@@ -171,6 +179,7 @@ export function SmartDictionary() {
 
       const aiResult = await smartDictionary({ query: query });
       setResult(aiResult);
+      logActivity({ tool: 'القاموس الذكي', query: query });
       
       // Save the new result to the local dictionary
       saveWordToDictionary(aiResult);
@@ -206,6 +215,7 @@ export function SmartDictionary() {
   const handleWordClick = (wordData: WordProcessorResult) => {
     form.setValue('query', wordData.word);
     setResult(wordData);
+    logActivity({ tool: 'القاموس الذكي', query: wordData.word });
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -305,7 +315,7 @@ export function SmartDictionary() {
           </form>
         </Form>
         
-        {isLoading && (
+        {isLoading && !result && (
           <div className="flex justify-center items-center mt-10">
             <Loader2 className="h-12 w-12 animate-spin text-primary" />
           </div>

@@ -1,6 +1,8 @@
 import type { Metadata } from 'next';
 import './globals.css';
 import { Toaster } from '@/components/ui/toaster';
+import { ActivityLog } from '@/components/activity-log';
+import { ActivityLogProvider } from '@/hooks/use-activity-log';
 
 export const metadata: Metadata = {
   title: 'أ. أسامة العُمري',
@@ -24,8 +26,11 @@ export default function RootLayout({
         <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
       </head>
       <body className="font-body antialiased">
-        {children}
-        <Toaster />
+        <ActivityLogProvider>
+          {children}
+          <ActivityLog />
+          <Toaster />
+        </ActivityLogProvider>
       </body>
     </html>
   );

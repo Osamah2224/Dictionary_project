@@ -12,6 +12,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
+import { useActivityLog } from '@/hooks/use-activity-log';
 
 const FormSchema = z.object({
   text: z.string().min(1, 'الرجاء إدخال نص للترجمة.'),
@@ -30,6 +31,7 @@ export function SmartTranslation() {
   const [isCopied, setIsCopied] = useState(false);
   const { toast } = useToast();
   const [translationsCache, setTranslationsCache] = useState<Record<string, string>>({});
+  const { logActivity } = useActivityLog();
 
   useEffect(() => {
     try {
@@ -64,12 +66,17 @@ export function SmartTranslation() {
     setIsLoading(true);
     setTranslation(null);
     const query = data.text.trim();
+    if (!query) {
+      setIsLoading(false);
+      return;
+    }
     
     try {
       // Check cache first
       if (translationsCache[query.toLowerCase()]) {
-        setTranslation(translationsCache[query.toLowerCase()]);
-        setIsLoading(false);
+        const cachedTranslation = translationsCache[query.toLowerCase()];
+        setTranslation(cachedTranslation);
+        logActivity({ tool: 'الترجمة الذكية', query: query });
         toast({
           title: 'تم العثور على الترجمة في الذاكرة المحلية',
           description: 'هذه الترجمة تم جلبها من جهازك دون الحاجة للإنترنت.',
@@ -87,6 +94,7 @@ export function SmartTranslation() {
 
       const translationResult = await smartTranslation(input);
       setTranslation(translationResult.translation);
+      logActivity({ tool: 'الترجمة الذكية', query: query });
       
       // Save the new translation to cache
       saveTranslationToCache(query, translationResult.translation);
@@ -149,7 +157,7 @@ export function SmartTranslation() {
           </form>
         </Form>
         
-        {isLoading && (
+        {isLoading && !translation && (
           <div className="flex justify-center items-center mt-10">
             <Loader2 className="h-12 w-12 animate-spin text-primary" />
           </div>

@@ -11,12 +11,14 @@ import { Badge } from './ui/badge';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from './ui/accordion';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
 import { Separator } from './ui/separator';
+import { useActivityLog } from '@/hooks/use-activity-log';
 
 export function SmartTeacher() {
   const [lessonContent, setLessonContent] = useState('');
   const [analysisResult, setAnalysisResult] = useState<SmartTeacherOutput | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
+  const { logActivity } = useActivityLog();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -36,6 +38,7 @@ export function SmartTeacher() {
       const input: SmartTeacherInput = { lessonContent };
       const result = await smartTeacher(input);
       setAnalysisResult(result);
+      logActivity({ tool: 'المعلم الذكي', query: result.analysis.title || 'تحليل درس' });
     } catch (error) {
        console.error('Smart Teacher Error:', error);
        toast({
