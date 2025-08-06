@@ -108,7 +108,7 @@ export function SmartDictionary() {
               )}
             />
             <Button type="submit" disabled={isLoading} className="w-full bg-primary hover:bg-primary/90 text-primary-foreground py-7 text-xl rounded-lg shadow-lg transform hover:scale-105 transition-transform duration-300">
-              {isLoading && <Loader2 className="h-6 w-6 animate-spin" />}
+              {isLoading ? <Loader2 className="ml-2 h-6 w-6 animate-spin" /> : <Database className="ml-2 h-6 w-6" />}
               <span>احصل على التعريف</span>
             </Button>
           </form>
