@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { useToast } from '@/hooks/use-toast';
+import type { WorkerMessage } from '@/workers/sql-extractor.worker';
 
 export function SqlExtractor() {
   const { toast } = useToast();
@@ -19,6 +20,39 @@ export function SqlExtractor() {
   const [savedWords, setSavedWords] = useState<string[]>([]);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const workerRef = useRef<Worker>();
+
+  useEffect(() => {
+    workerRef.current = new Worker(new URL('../workers/sql-extractor.worker.ts', import.meta.url));
+
+    workerRef.current.onmessage = (event: MessageEvent<WorkerMessage>) => {
+      const { type, payload } = event.data;
+      switch (type) {
+        case 'PROGRESS':
+          setProgress(payload.progress);
+          showMessage(payload.message, 'info');
+          break;
+        case 'RESULT':
+          const { words, stats } = payload;
+          setExtractedWords(words);
+          setStats(stats);
+          showMessage(`تم استخراج ${words.length} كلمة إنجليزية بنجاح!`, 'success');
+          setProcessing(false);
+          setProgress(100);
+          setTimeout(() => setProgress(0), 2000);
+          break;
+        case 'ERROR':
+          showMessage(payload.message, 'error');
+          setProcessing(false);
+          setProgress(0);
+          break;
+      }
+    };
+
+    return () => {
+      workerRef.current?.terminate();
+    };
+  }, []);
 
   const showMessage = useCallback((text: string, type: 'info' | 'success' | 'error') => {
     setMessage({ text, type });
@@ -41,15 +75,17 @@ export function SqlExtractor() {
   const handleFileChange = (file: File | null) => {
     if (!file) return;
 
-    if (file.size > 10 * 1024 * 1024) {
-      showMessage('حجم الملف كبير جدًا. الحد الأقصى المسموح به هو 10MB', 'error');
+    if (file.size > 100 * 1024 * 1024) { // Increased to 100MB
+      showMessage('حجم الملف كبير جدًا. الحد الأقصى المسموح به هو 100MB', 'error');
       return;
     }
     if (!file.name.toLowerCase().endsWith('.sql')) {
       showMessage('الرجاء اختيار ملف بامتداد .sql فقط', 'error');
       return;
     }
-
+    
+    setExtractedWords([]);
+    setStats({ totalWords: 0, uniqueWords: 0, processingTime: 0 });
     setCurrentFile(file);
     setFileName(file.name);
     const formattedSize = (bytes: number) => {
@@ -86,31 +122,6 @@ export function SqlExtractor() {
     event.currentTarget.style.borderColor = 'hsl(var(--primary))';
   };
   
-  const extractWordsFromSQL = (sqlContent: string): string[] => {
-      const wordRegex = /\b[A-Za-z_][A-Za-z0-9_]{2,}\b/g;
-      const matches = sqlContent.match(wordRegex) || [];
-      const sqlKeywords = new Set([
-          'select', 'insert', 'update', 'delete', 'from', 'where', 'and', 'or', 
-          'into', 'values', 'set', 'create', 'table', 'database', 'index', 
-          'view', 'as', 'is', 'null', 'not', 'like', 'in', 'between', 
-          'by', 'group', 'order', 'asc', 'desc', 'having', 'distinct', 
-          'join', 'inner', 'outer', 'left', 'right', 'on', 'union', 
-          'all', 'any', 'exists', 'case', 'when', 'then', 'else', 'end', 
-          'primary', 'key', 'foreign', 'constraint', 'default', 'check', 
-          'alter', 'drop', 'truncate', 'commit', 'rollback', 'grant', 
-          'revoke', 'begin', 'transaction', 'exec', 'procedure', 'function'
-      ]);
-      const uniqueWords = new Set<string>();
-      for (const word of matches) {
-          const lowerWord = word.toLowerCase();
-          if (!sqlKeywords.has(lowerWord)) {
-              uniqueWords.add(word);
-          }
-      }
-      return Array.from(uniqueWords).sort();
-  }
-
-
   const handleExtract = async () => {
     if (!currentFile) {
       showMessage('الرجاء اختيار ملف SQL', 'error');
@@ -119,53 +130,13 @@ export function SqlExtractor() {
 
     setProcessing(true);
     setProgress(0);
-    showMessage('جاري قراءة الملف...', 'info');
+    setExtractedWords([]);
+    setStats({ totalWords: 0, uniqueWords: 0, processingTime: 0 });
+    showMessage('جاري إرسال الملف للمعالجة...', 'info');
 
-    const reader = new FileReader();
-    reader.onprogress = (event) => {
-      if (event.lengthComputable) {
-        const percentLoaded = Math.round((event.loaded / event.total) * 50);
-        setProgress(percentLoaded);
-      }
-    };
-
-    reader.onload = (e) => {
-      const content = e.target?.result as string;
-      if (content) {
-        setProgress(50);
-        showMessage('جاري معالجة الملف واستخراج الكلمات...', 'info');
-        const startTime = performance.now();
-        
-        // Simulate processing time for large files
-        setTimeout(() => {
-          const words = extractWordsFromSQL(content);
-          const endTime = performance.now();
-          const processingTime = parseFloat(((endTime - startTime) / 1000).toFixed(2));
-
-          setExtractedWords(words);
-          setStats({ totalWords: words.length, uniqueWords: words.length, processingTime });
-          setProgress(100);
-          showMessage(`تم استخراج ${words.length} كلمة إنجليزية بنجاح!`, 'success');
-          setProcessing(false);
-          
-          setTimeout(() => setProgress(0), 2000);
-        }, 500);
-
-      } else {
-        showMessage('فشل في قراءة محتوى الملف', 'error');
-        setProcessing(false);
-      }
-    };
-
-    reader.onerror = () => {
-      showMessage('حدث خطأ أثناء قراءة الملف', 'error');
-      setProcessing(false);
-      setProgress(0);
-    };
-
-    reader.readAsText(currentFile);
+    workerRef.current?.postMessage({ file: currentFile });
   };
-
+  
   const saveResults = () => {
     if (extractedWords.length === 0) {
       toast({ title: 'لا توجد كلمات لحفظها', variant: 'destructive' });
@@ -252,7 +223,7 @@ export function SqlExtractor() {
           >
             <i className="fas fa-cloud-upload-alt text-5xl text-primary mb-4"></i>
             <h3 className="text-xl font-bold">انقر أو اسحب ملف SQL هنا</h3>
-            <p className="text-muted-foreground">الحد الأقصى لحجم الملف: 10MB</p>
+            <p className="text-muted-foreground">الحد الأقصى لحجم الملف: 100MB</p>
             <input type="file" ref={fileInputRef} onChange={handleFileSelect} accept=".sql" className="hidden" />
           </div>
 
