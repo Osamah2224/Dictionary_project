@@ -4,12 +4,12 @@ import { useState } from 'react';
 import { useForm, type SubmitHandler } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { BookMarked, Loader2, Database } from 'lucide-react';
+import { BookMarked, Loader2, Database, Search } from 'lucide-react';
 
 import { smartDictionary, type SmartDictionaryInput } from '@/ai/flows/smart-dictionary';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { Form, FormControl, FormField, FormItem, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
@@ -58,16 +58,16 @@ export function SmartDictionary() {
   };
 
   return (
-    <Card className="w-full border-2 border-primary/20 shadow-xl rounded-xl">
-      <CardHeader>
+    <Card className="w-full border-2 border-primary/20 shadow-xl rounded-xl overflow-hidden">
+      <CardHeader className="bg-primary/5">
         <div className="flex items-center justify-between">
           <CardTitle className="flex items-center gap-3 text-2xl font-headline text-primary">
-            <BookMarked className="h-8 w-8 text-accent" />
+            <BookMarked className="h-8 w-8" />
             <span>القاموس الذكي</span>
           </CardTitle>
-          <Button asChild variant="outline" size="icon" className="group" title="مستخرج الكلمات من ملف SQL">
+          <Button asChild variant="ghost" size="icon" className="group text-primary hover:bg-primary/10" title="مستخرج الكلمات من ملف SQL">
              <Link href="/sql-extractor">
-                <Database className="h-6 w-6 text-primary group-hover:text-accent-foreground" />
+                <Database className="h-6 w-6" />
              </Link>
           </Button>
         </div>
@@ -75,70 +75,83 @@ export function SmartDictionary() {
           أدخل كلمة أو عبارة واحصل على تعريفها المترجم ومثال على استخدامها في السياق.
         </CardDescription>
       </CardHeader>
-      <CardContent>
+      <CardContent className="p-6">
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
-            <FormField
-              control={form.control}
-              name="query"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel className="text-lg">الكلمة أو العبارة</FormLabel>
-                  <FormControl>
-                    <Input placeholder="مثال: Technology" {...field} className="py-6 text-lg"/>
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="targetLanguage"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel className="text-lg">الترجمة إلى</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+            <div className="flex flex-col sm:flex-row gap-4">
+              <FormField
+                control={form.control}
+                name="query"
+                render={({ field }) => (
+                  <FormItem className="flex-grow">
                     <FormControl>
-                      <SelectTrigger className="py-6 text-lg">
-                        <SelectValue placeholder="اختر اللغة المستهدفة" />
-                      </SelectTrigger>
+                      <div className="relative">
+                        <Input placeholder="أدخل الكلمة هنا..." {...field} className="py-6 text-lg pl-10" />
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                      </div>
                     </FormControl>
-                    <SelectContent>
-                      <SelectItem value="Arabic" className="text-lg">العربية</SelectItem>
-                      <SelectItem value="English" className="text-lg">الإنجليزية</SelectItem>
-                      <SelectItem value="French" className="text-lg">الفرنسية</SelectItem>
-                      <SelectItem value="Spanish" className="text-lg">الإسبانية</SelectItem>
-                      <SelectItem value="German" className="text-lg">الألمانية</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="targetLanguage"
+                render={({ field }) => (
+                  <FormItem className="min-w-[180px]">
+                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <FormControl>
+                        <SelectTrigger className="py-6 text-lg">
+                          <SelectValue placeholder="اختر اللغة" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="Arabic" className="text-lg">العربية</SelectItem>
+                        <SelectItem value="English" className="text-lg">الإنجليزية</SelectItem>
+                        <SelectItem value="French" className="text-lg">الفرنسية</SelectItem>
+                        <SelectItem value="Spanish" className="text-lg">الإسبانية</SelectItem>
+                        <SelectItem value="German" className="text-lg">الألمانية</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
             <Button type="submit" disabled={isLoading} className="w-full bg-primary hover:bg-primary/90 text-primary-foreground py-7 text-xl rounded-lg shadow-lg transform hover:scale-105 transition-transform duration-300">
-              {isLoading ? <Loader2 className="ml-2 h-6 w-6 animate-spin" /> : <BookMarked className="ml-2 h-6 w-6" />}
-              <span>احصل على التعريف</span>
+              {isLoading ? <Loader2 className="ml-2 h-6 w-6 animate-spin" /> : <Search className="ml-2 h-6 w-6" />}
+              <span>بحث</span>
             </Button>
           </form>
         </Form>
+        
+        {isLoading && (
+          <div className="flex justify-center items-center mt-10">
+            <Loader2 className="h-12 w-12 animate-spin text-primary" />
+          </div>
+        )}
+
         {result && (
-          <div className="mt-10 space-y-6 animate-in fade-in duration-500">
-            <Card className="bg-background/50 rounded-lg">
-              <CardHeader>
-                <CardTitle className="text-xl text-primary">التعريف المترجم</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-lg">{result.translatedDefinition}</p>
-              </CardContent>
-            </Card>
-            <Card className="bg-background/50 rounded-lg">
-              <CardHeader>
-                <CardTitle className="text-xl text-primary">مثال على الاستخدام</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="italic text-lg">{result.exampleUsage}</p>
-              </CardContent>
-            </Card>
+          <div className="mt-8 border-t border-primary/20 pt-6 animate-in fade-in duration-500">
+             <h3 className="text-2xl font-bold text-primary mb-4">النتائج:</h3>
+             <div className="space-y-6">
+                <Card className="bg-background/50 rounded-lg">
+                  <CardHeader>
+                    <CardTitle className="text-xl">التعريف المترجم</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-lg leading-relaxed">{result.translatedDefinition}</p>
+                  </CardContent>
+                </Card>
+                <Card className="bg-background/50 rounded-lg">
+                  <CardHeader>
+                    <CardTitle className="text-xl">مثال على الاستخدام</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="italic text-lg leading-relaxed">{result.exampleUsage}</p>
+                  </CardContent>
+                </Card>
+             </div>
           </div>
         )}
       </CardContent>
