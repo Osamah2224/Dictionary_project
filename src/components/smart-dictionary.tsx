@@ -113,7 +113,7 @@ export function SmartDictionary() {
       workerRef.current?.terminate();
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [toast]);
+  }, []);
   
 
   const onSubmit: SubmitHandler<FormValues> = async (data) => {
@@ -205,7 +205,7 @@ export function SmartDictionary() {
                 </DialogHeader>
                 <div className='space-y-4 py-4'>
                   <div className='flex items-center justify-between'>
-                    <span className='font-medium'>التقدم:</span>
+                    <span className='font-medium'>الكلمات المعالجة:</span>
                     <span className='font-bold text-primary'>{processedCount} / {totalWordsToProcess}</span>
                   </div>
                   <Progress value={progress} />
