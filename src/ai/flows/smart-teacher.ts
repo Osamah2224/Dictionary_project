@@ -59,8 +59,29 @@ const SmartTeacherOutputSchema = z.object({
   grammarRules: z.array(z.object({
     rule: z.string().describe("The name of the grammar rule (e.g., 'Present Simple', 'Definite Article The')."),
     explanation: z.string().describe("A simple and clear explanation of the rule in Arabic."),
-    example: z.string().describe("An actual example sentence from the lesson that uses this rule."),
-    exampleTranslation: z.string().describe("The Arabic translation of the example sentence."),
+    // Details specific to verb tenses
+    tenseDetails: z.object({
+      formula: z.string().describe("The grammatical formula for the tense (e.g., Subject + V2 + Object)."),
+      keywords: z.array(z.string()).describe("A list of keywords or time indicators for this tense (e.g., 'yesterday', 'always')."),
+      usage: z.string().describe("An explanation of when and why to use this tense, in Arabic."),
+      positiveExamples: z.array(z.object({
+        example: z.string().describe("An example of a positive sentence."),
+        translation: z.string().describe("The Arabic translation of the example.")
+      })).describe("Multiple examples of positive sentences."),
+      negativeExamples: z.array(z.object({
+        example: z.string().describe("An example of a negative sentence."),
+        translation: z.string().describe("The Arabic translation of the example.")
+      })).describe("Multiple examples of negative sentences."),
+      questionExamples: z.array(z.object({
+        example: z.string().describe("An example of a question."),
+        translation: z.string().describe("The Arabic translation of the example.")
+      })).describe("Multiple examples of questions and answers."),
+    }).optional().describe("Detailed breakdown if the rule is a verb tense. If not a tense, this field is omitted."),
+    // General example for non-tense rules
+    generalExample: z.object({
+       example: z.string().describe("An actual example sentence from the lesson that uses this rule."),
+       exampleTranslation: z.string().describe("The Arabic translation of the example sentence."),
+    }).optional().describe("An example for non-tense rules."),
   })).describe("An analysis of the grammar rules used in the lesson."),
   
   commonExpressions: z.array(z.object({
@@ -83,8 +104,8 @@ const SmartTeacherOutputSchema = z.object({
     commonMistakes: z.array(z.string()).describe("A list of common mistakes for Arab students related to the lesson's topics."),
   }).describe("A final summary and tips for the Arab student."),
 });
-
 export type SmartTeacherOutput = z.infer<typeof SmartTeacherOutputSchema>;
+
 
 export async function smartTeacher(input: SmartTeacherInput): Promise<SmartTeacherOutput> {
   return smartTeacherFlow(input);
@@ -105,8 +126,8 @@ Follow these instructions precisely to generate the output object:
 
 1.  **Comprehensive Analysis:**
     -   \`title\`: Extract the main topic of the lesson.
-    -   \`lessonType\`: Classify the lesson as Grammar, Vocabulary, Reading, Writing, Listening, or Conversation.
-    -   \`studentLevel\`: Determine the appropriate level: Beginner, Intermediate, or Advanced.
+    -   \`lessonType\`: Classify the lesson.
+    -   \`studentLevel\`: Determine the appropriate level.
     -   \`summary\`: Write a simple summary of the lesson in ARABIC.
 
 2.  **Lesson with Translation:**
@@ -114,37 +135,34 @@ Follow these instructions precisely to generate the output object:
     -   For each sentence, provide the original \`english\` text and its \`arabic\` translation.
 
 3.  **New Words:**
-    -   Extract important new vocabulary words.
-    -   For each word, provide \`partOfSpeech\`, \`type\` (e.g., singular, plural, regular verb), and its \`meaning\` in Arabic. Create a list.
+    -   Extract important new vocabulary words and display them in a table.
 
 4.  **Verb Conjugations:**
-    -   Identify important verbs from the lesson.
-    -   For each verb, create a table entry with \`verb\`, its Arabic \`meaning\`, \`baseForm\`, \`past\` (2nd form), \`pastParticiple\` (3rd form), \`presentContinuous\` (verb+ing), and \`future\` (will + verb).
+    -   Identify important verbs and create a conjugation table.
 
 5.  **Synonyms and Antonyms:**
-    -   For key words, provide a \`synonym\`, an \`antonym\` (if applicable, otherwise leave empty), its Arabic \`translation\`, an \`example\` sentence from the lesson, and the \`exampleTranslation\` in Arabic.
+    -   For key words, provide synonyms, antonyms, and an example.
 
 6.  **Smarter Grammar Rules Analysis:**
-    -   Your primary task is to be an expert grammarian. Automatically detect and extract ALL grammar rules present in the text, from basic to advanced. This includes, but is not limited to: tenses, articles (a/an/the), pronouns, prepositions, passive vs. active voice, questions, reported speech, conditionals, modal verbs, comparatives/superlatives, etc.
+    -   Your primary task is to be an expert grammarian. Automatically detect and extract ALL grammar rules present in the text.
     -   For each detected rule:
-        -   \`rule\`: Provide the precise, academic name of the rule (e.g., 'Present Perfect Continuous', 'Third Conditional', 'Use of "the" with Superlatives').
-        -   \`explanation\`: Provide a simple, clear, and direct explanation of the rule in ARABIC, as if you are explaining it to a student.
-        -   \`example\`: Extract a REAL, complete sentence from the user's lesson content that perfectly demonstrates this specific rule.
-        -   \`exampleTranslation\`: Provide the accurate Arabic translation for the example sentence.
+        -   \`rule\`: Provide the precise, academic name of the rule (e.g., 'Present Simple', 'Definite Article The').
+        -   \`explanation\`: Provide a simple, clear, and direct explanation of the rule in ARABIC.
+        -   **IF THE RULE IS A VERB TENSE** (like Present Simple, Past Perfect, etc.), you MUST populate the \`tenseDetails\` object with the following:
+            -   \`formula\`: The grammatical structure using symbols (e.g., Subject + verb(s/es) + Object).
+            -   \`keywords\`: A list of common words indicating the tense (e.g., always, usually, yesterday, last year).
+            -   \`usage\`: A clear Arabic explanation of when to use this tense.
+            -   \`positiveExamples\`, \`negativeExamples\`, \`questionExamples\`: Provide at least two clear, distinct examples for each category, along with their Arabic translations. Show how to form questions, answers, and negations.
+        -   **IF THE RULE IS NOT A VERB TENSE** (like articles, prepositions, etc.), you must OMIT the \`tenseDetails\` field and instead provide a single, clear example in the \`generalExample\` field, extracting a real sentence from the lesson content that demonstrates the rule.
 
 7.  **Common Expressions:**
     -   Extract common phrases, idioms, or language chunks.
-    -   For each, provide the \`expression\`, its Arabic \`translation\`, and an explanation of its \`usage\` and context.
 
 8.  **Interactive Exercises:**
     -   Generate a variety of exercises based on the lesson content.
-    -   Types must include: "Multiple Choice", "Fill in the Blank", "Correct the Mistake", "Translate", or "Convert Sentence".
-    -   For each exercise, provide the \`question\`, \`type\`, \`options\` (for multiple choice), the correct \`answer\`, and the \`answerTranslation\`.
 
 9.  **Final Tips:**
-    -   Provide a final \`summary\` of the lesson in ARABIC.
-    -   List the most important \`keyPoints\` for the student to memorize.
-    -   List some \`commonMistakes\` Arab students make related to the lesson's topics.
+    -   Provide a final summary, key points to memorize, and common mistakes for Arab students.
 
 Ensure all Arabic translations are accurate and natural. The entire output must strictly follow the provided Zod schema.`,
 });
