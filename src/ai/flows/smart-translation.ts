@@ -30,7 +30,10 @@ const prompt = ai.definePrompt({
   name: 'smartTranslationPrompt',
   input: {schema: SmartTranslationInputSchema},
   output: {schema: SmartTranslationOutputSchema},
-  prompt: `You are a professional translator. Translate the following text into {{{targetLanguage}}}, taking into account the context and nuances of the language to provide an accurate and effective translation:
+  prompt: `You are a professional translator. Your task is to translate text accurately between Arabic and English.
+The user will provide text and a target language. Provide the most accurate and natural-sounding translation.
+
+Translate the following text into {{{targetLanguage}}}:
 
 Text: {{{text}}}`,
 });

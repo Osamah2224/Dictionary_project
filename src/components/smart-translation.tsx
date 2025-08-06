@@ -11,15 +11,16 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Textarea } from '@/components/ui/textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 
 const FormSchema = z.object({
   text: z.string().min(1, 'الرجاء إدخال نص للترجمة.'),
-  targetLanguage: z.string({ required_error: 'الرجاء اختيار لغة.' }),
 });
 
 type FormValues = z.infer<typeof FormSchema>;
+
+// Function to detect if the text is primarily Arabic
+const isArabic = (text: string) => /[\u0600-\u06FF]/.test(text);
 
 export function SmartTranslation() {
   const [translation, setTranslation] = useState<string | null>(null);
@@ -38,7 +39,15 @@ export function SmartTranslation() {
     setIsLoading(true);
     setTranslation(null);
     try {
-      const translationResult = await smartTranslation(data as SmartTranslationInput);
+      // Determine the target language based on the input text
+      const targetLanguage = isArabic(data.text) ? 'English' : 'Arabic';
+      
+      const input: SmartTranslationInput = {
+        text: data.text,
+        targetLanguage: targetLanguage,
+      };
+
+      const translationResult = await smartTranslation(input);
       setTranslation(translationResult.translation);
     } catch (error) {
       console.error('Smart Translation Error:', error);
@@ -69,57 +78,29 @@ export function SmartTranslation() {
           <span>الترجمة الذكية</span>
         </CardTitle>
         <CardDescription className="text-lg text-muted-foreground pt-2">
-          ترجم الجمل والنصوص الكاملة بدقة مع مراعاة السياق.
+          ترجم بين العربية والإنجليزية. أدخل النص في أي من اللغتين واحصل على الترجمة الفورية.
         </CardDescription>
       </CardHeader>
       <CardContent className="p-6">
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <FormField
-                control={form.control}
-                name="text"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel className="text-lg">النص الأصلي</FormLabel>
-                    <FormControl>
-                      <Textarea placeholder="أدخل النص هنا..." className="min-h-[200px] text-lg" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <div className="space-y-4">
-                 <FormField
-                  control={form.control}
-                  name="targetLanguage"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel className="text-lg">الترجمة إلى</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
-                        <FormControl>
-                          <SelectTrigger className="py-6 text-lg">
-                            <SelectValue placeholder="اختر اللغة" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value="Arabic" className="text-lg">العربية</SelectItem>
-                          <SelectItem value="English" className="text-lg">الإنجليزية</SelectItem>
-                          <SelectItem value="French" className="text-lg">الفرنسية</SelectItem>
-                          <SelectItem value="Spanish" className="text-lg">الإسبانية</SelectItem>
-                          <SelectItem value="German" className="text-lg">الألمانية</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                 <Button type="submit" disabled={isLoading} className="w-full bg-primary hover:bg-primary/90 text-primary-foreground py-7 text-xl rounded-lg shadow-lg transform hover:scale-105 transition-transform duration-300">
-                    {isLoading ? <Loader2 className="ml-2 h-6 w-6 animate-spin" /> : <Languages className="ml-2 h-6 w-6" />}
-                    <span>ترجم النص</span>
-                 </Button>
-              </div>
-            </div>
+            <FormField
+              control={form.control}
+              name="text"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="text-lg">النص الأصلي (عربي أو إنجليزي)</FormLabel>
+                  <FormControl>
+                    <Textarea placeholder="أدخل النص هنا..." className="min-h-[200px] text-lg" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <Button type="submit" disabled={isLoading} className="w-full bg-primary hover:bg-primary/90 text-primary-foreground py-7 text-xl rounded-lg shadow-lg transform hover:scale-105 transition-transform duration-300">
+                {isLoading ? <Loader2 className="ml-2 h-6 w-6 animate-spin" /> : <Languages className="ml-2 h-6 w-6" />}
+                <span>ترجم النص</span>
+            </Button>
           </form>
         </Form>
         
