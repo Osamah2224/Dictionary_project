@@ -16,7 +16,7 @@ export default function Home() {
         </header>
         <main>
           <Tabs defaultValue="dictionary" className="w-full">
-            <TabsList className="grid w-full grid-cols-1 md:grid-cols-3 h-auto md:h-12 bg-transparent p-0 gap-4">
+            <TabsList className="flex justify-center w-full bg-transparent p-0 gap-4 mb-4">
               <TabsTrigger value="dictionary" className="text-base md:text-lg py-3 rounded-lg shadow-md data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-xl transition-all duration-300">
                 القاموس الذكي
               </TabsTrigger>
