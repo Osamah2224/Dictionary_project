@@ -56,7 +56,12 @@ const SmartDictionaryOutputSchema = z.object({
   })),
 });
 
-export function SmartDictionary() {
+interface SmartDictionaryProps {
+  initialState?: { query: string; result: SmartDictionaryOutput } | null;
+}
+
+
+export function SmartDictionary({ initialState }: SmartDictionaryProps) {
   const [result, setResult] = useState<ResultState>(null);
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
@@ -68,6 +73,13 @@ export function SmartDictionary() {
       query: '',
     },
   });
+
+  useEffect(() => {
+    if (initialState) {
+        form.setValue('query', initialState.query);
+        setResult(initialState.result);
+    }
+  }, [initialState, form]);
 
   // Word Processor State
   const [isProcessorOpen, setIsProcessorOpen] = useState(false);
@@ -171,7 +183,7 @@ export function SmartDictionary() {
 
         if (foundEntry) {
           setResult(foundEntry);
-          logActivity({ tool: 'القاموس الذكي', query: query });
+          logActivity({ tool: 'القاموس الذكي', query: query, payload: foundEntry });
           toast({ title: "تم العثور على الكلمة في القاموس المحلي" });
           return;
         }
@@ -179,7 +191,7 @@ export function SmartDictionary() {
 
       const aiResult = await smartDictionary({ query: query });
       setResult(aiResult);
-      logActivity({ tool: 'القاموس الذكي', query: query });
+      logActivity({ tool: 'القاموس الذكي', query: query, payload: aiResult });
       
       // Save the new result to the local dictionary
       saveWordToDictionary(aiResult);
@@ -215,7 +227,7 @@ export function SmartDictionary() {
   const handleWordClick = (wordData: WordProcessorResult) => {
     form.setValue('query', wordData.word);
     setResult(wordData);
-    logActivity({ tool: 'القاموس الذكي', query: wordData.word });
+    logActivity({ tool: 'القاموس الذكي', query: wordData.word, payload: wordData });
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
@@ -13,12 +13,25 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '.
 import { Separator } from './ui/separator';
 import { useActivityLog } from '@/hooks/use-activity-log';
 
-export function SmartTeacher() {
+
+interface SmartTeacherProps {
+  initialState?: { query: string; result: SmartTeacherOutput } | null;
+}
+
+export function SmartTeacher({ initialState }: SmartTeacherProps) {
   const [lessonContent, setLessonContent] = useState('');
   const [analysisResult, setAnalysisResult] = useState<SmartTeacherOutput | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
   const { logActivity } = useActivityLog();
+
+  useEffect(() => {
+    if (initialState) {
+        // The query in the activity log for the teacher is the lesson content itself
+        setLessonContent(initialState.query);
+        setAnalysisResult(initialState.result);
+    }
+  }, [initialState]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -38,7 +51,12 @@ export function SmartTeacher() {
       const input: SmartTeacherInput = { lessonContent };
       const result = await smartTeacher(input);
       setAnalysisResult(result);
-      logActivity({ tool: 'المعلم الذكي', query: result.analysis.title || 'تحليل درس' });
+      logActivity({ 
+        tool: 'المعلم الذكي', 
+        // For the teacher, the query in log is the title, but the "payload" query is the full content
+        query: result.analysis.title || 'تحليل درس', 
+        payload: result 
+      });
     } catch (error) {
        console.error('Smart Teacher Error:', error);
        toast({

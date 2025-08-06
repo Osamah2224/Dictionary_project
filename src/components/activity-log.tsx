@@ -1,6 +1,6 @@
 'use client';
 
-import { useActivityLog } from '@/hooks/use-activity-log';
+import { useActivityLog, useActivitySelect } from '@/hooks/use-activity-log';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger, SheetFooter, SheetDescription, SheetClose } from '@/components/ui/sheet';
 import { History, Trash2, BookMarked, Languages, GraduationCap, X } from 'lucide-react';
@@ -17,9 +17,9 @@ const TOOL_ICONS = {
 
 export function ActivityLog() {
   const { activities, clearActivities, removeActivity } = useActivityLog();
+  const onActivitySelect = useActivitySelect();
 
   const handleClear = () => {
-    // A simple confirmation for a destructive action
     if (window.confirm('هل أنت متأكد من رغبتك في مسح كل سجل النشاطات؟ لا يمكن التراجع عن هذا الإجراء.')) {
       clearActivities();
     }
@@ -43,14 +43,18 @@ export function ActivityLog() {
             سجل النشاطات
           </SheetTitle>
           <SheetDescription>
-            هنا تجد آخر النشاطات التي قمت بها في التطبيق.
+            هنا تجد آخر النشاطات التي قمت بها. انقر على أي نشاط للعودة لتفاصيله.
           </SheetDescription>
         </SheetHeader>
         <ScrollArea className="flex-grow my-4 pr-4 -mr-6">
           <div className="space-y-4">
             {activities.length > 0 ? (
               activities.map((activity) => (
-                <Card key={activity.id} className="relative group">
+                <SheetClose asChild key={activity.id}>
+                <Card 
+                    className="relative group cursor-pointer hover:bg-muted/50 transition-colors"
+                    onClick={() => onActivitySelect(activity)}
+                >
                   <CardHeader className="flex flex-row items-center justify-between pb-2">
                      <CardTitle className="text-lg flex items-center gap-3">
                        {TOOL_ICONS[activity.tool as keyof typeof TOOL_ICONS]}
@@ -59,8 +63,8 @@ export function ActivityLog() {
                      <Button 
                         variant="ghost" 
                         size="icon" 
-                        className="absolute top-1 left-1 h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity"
-                        onClick={() => removeActivity(activity.id)}
+                        className="absolute top-1 left-1 h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity z-10"
+                        onClick={(e) => { e.stopPropagation(); removeActivity(activity.id); }}
                         aria-label="Remove activity"
                       >
                        <X className="h-4 w-4" />
@@ -73,6 +77,7 @@ export function ActivityLog() {
                     </p>
                   </CardContent>
                 </Card>
+                </SheetClose>
               ))
             ) : (
               <div className="flex flex-col items-center justify-center text-center h-full text-muted-foreground py-16">

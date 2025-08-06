@@ -25,13 +25,31 @@ const isArabic = (text: string) => /[\u0600-\u06FF]/.test(text);
 
 const TRANSLATION_CACHE_KEY = 'smartTranslationsCache';
 
-export function SmartTranslation() {
+interface SmartTranslationProps {
+  initialState?: { query: string; result: { translation: string } } | null;
+}
+
+export function SmartTranslation({ initialState }: SmartTranslationProps) {
   const [translation, setTranslation] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isCopied, setIsCopied] = useState(false);
   const { toast } = useToast();
   const [translationsCache, setTranslationsCache] = useState<Record<string, string>>({});
   const { logActivity } = useActivityLog();
+
+  const form = useForm<FormValues>({
+    resolver: zodResolver(FormSchema),
+    defaultValues: {
+      text: '',
+    },
+  });
+
+  useEffect(() => {
+    if (initialState) {
+        form.setValue('text', initialState.query);
+        setTranslation(initialState.result.translation);
+    }
+  }, [initialState, form]);
 
   useEffect(() => {
     try {
@@ -55,12 +73,6 @@ export function SmartTranslation() {
     }
   };
 
-  const form = useForm<FormValues>({
-    resolver: zodResolver(FormSchema),
-    defaultValues: {
-      text: '',
-    },
-  });
 
   const onSubmit: SubmitHandler<FormValues> = async (data) => {
     setIsLoading(true);
@@ -71,12 +83,15 @@ export function SmartTranslation() {
       return;
     }
     
+    const payload = { translation: '' };
+
     try {
       // Check cache first
       if (translationsCache[query.toLowerCase()]) {
         const cachedTranslation = translationsCache[query.toLowerCase()];
         setTranslation(cachedTranslation);
-        logActivity({ tool: 'الترجمة الذكية', query: query });
+        payload.translation = cachedTranslation;
+        logActivity({ tool: 'الترجمة الذكية', query: query, payload });
         toast({
           title: 'تم العثور على الترجمة في الذاكرة المحلية',
           description: 'هذه الترجمة تم جلبها من جهازك دون الحاجة للإنترنت.',
@@ -94,7 +109,8 @@ export function SmartTranslation() {
 
       const translationResult = await smartTranslation(input);
       setTranslation(translationResult.translation);
-      logActivity({ tool: 'الترجمة الذكية', query: query });
+      payload.translation = translationResult.translation;
+      logActivity({ tool: 'الترجمة الذكية', query: query, payload });
       
       // Save the new translation to cache
       saveTranslationToCache(query, translationResult.translation);
