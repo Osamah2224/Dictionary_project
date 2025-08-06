@@ -3,9 +3,8 @@ import { SmartDictionary } from '@/components/smart-dictionary';
 import { SmartTranslation } from '@/components/smart-translation';
 import { AboutMe } from '@/components/about-me';
 import { ThemeToggle } from '@/components/theme-toggle';
-import { Languages, User, BookMarked, Database } from 'lucide-react';
+import { Languages, User, BookMarked } from 'lucide-react';
 import Link from 'next/link';
-import { Button } from '@/components/ui/button';
 
 export default function Home() {
   return (
