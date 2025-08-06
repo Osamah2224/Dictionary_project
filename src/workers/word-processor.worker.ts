@@ -99,5 +99,3 @@ self.onmessage = async (event: MessageEvent<WorkerCommand>) => {
       break;
   }
 };
-
-    
