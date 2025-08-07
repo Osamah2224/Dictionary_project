@@ -183,15 +183,16 @@ export function SmartDictionary({ initialState }: SmartDictionaryProps) {
 
         if (foundEntry) {
           setResult(foundEntry);
-          logActivity({ tool: 'القاموس الذكي', query: query, payload: foundEntry });
+          logActivity({ tool: 'القاموس الذكي', query: query, payload: { ...foundEntry } });
           toast({ title: "تم العثور على الكلمة في القاموس المحلي" });
+          setIsLoading(false);
           return;
         }
       }
 
       const aiResult = await smartDictionary({ query: query });
       setResult(aiResult);
-      logActivity({ tool: 'القاموس الذكي', query: query, payload: aiResult });
+      logActivity({ tool: 'القاموس الذكي', query: query, payload: { ...aiResult } });
       
       // Save the new result to the local dictionary
       saveWordToDictionary(aiResult);
@@ -227,7 +228,7 @@ export function SmartDictionary({ initialState }: SmartDictionaryProps) {
   const handleWordClick = (wordData: WordProcessorResult) => {
     form.setValue('query', wordData.word);
     setResult(wordData);
-    logActivity({ tool: 'القاموس الذكي', query: wordData.word, payload: wordData });
+    logActivity({ tool: 'القاموس الذكي', query: wordData.word, payload: { ...wordData } });
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 

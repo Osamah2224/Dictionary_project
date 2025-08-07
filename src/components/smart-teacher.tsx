@@ -27,7 +27,7 @@ export function SmartTeacher({ initialState }: SmartTeacherProps) {
 
   useEffect(() => {
     if (initialState) {
-        // The query in the activity log for the teacher is the lesson content itself
+        // When restoring from activity log, the "query" is the lesson content itself.
         setLessonContent(initialState.query);
         setAnalysisResult(initialState.result);
     }
@@ -53,9 +53,10 @@ export function SmartTeacher({ initialState }: SmartTeacherProps) {
       setAnalysisResult(result);
       logActivity({ 
         tool: 'المعلم الذكي', 
-        // For the teacher, the query in log is the title, but the "payload" query is the full content
+        // For the log list, we show the title.
         query: result.analysis.title || 'تحليل درس', 
-        payload: result 
+        // For the payload, we save the original content as the query to be able to restore it.
+        payload: { ...result, query: lessonContent }
       });
     } catch (error) {
        console.error('Smart Teacher Error:', error);
@@ -92,7 +93,7 @@ export function SmartTeacher({ initialState }: SmartTeacherProps) {
           </div>
           <CardTitle className="text-3xl font-headline font-bold text-primary">المعلم الذكي</CardTitle>
           <p className="text-muted-foreground text-lg pt-2">
-            أدخل أي محتوى درس لغة إنجليزية واحصل على تحليل تعليمي متكامل وشامل.
+            أدخل أي محتوى درس لغة إنجليزية واحصل على تحليل تعليمي متكامل وشامل. يعمل دون اتصال للدروس المحللة سابقاً عبر سجل النشاطات.
           </p>
         </CardHeader>
         <CardContent className="p-6">

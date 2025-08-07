@@ -9,7 +9,8 @@ import type { SmartTeacherOutput } from '@/ai/flows/smart-teacher';
 
 const ACTIVITY_LOG_KEY = 'appActivityLog';
 
-export type ActivityPayload = SmartDictionaryOutput | SmartTeacherOutput | { translation: string };
+// We add the original query for the teacher tool to the payload
+export type ActivityPayload = SmartDictionaryOutput | (SmartTeacherOutput & { query?: string }) | { translation: string };
 
 export interface ActivityLogItem {
   id: string;
@@ -64,13 +65,23 @@ export const ActivityLogProvider: React.FC<{ children: React.ReactNode, onActivi
       timestamp: new Date().toISOString(),
     };
     
-    // Prevent duplicate consecutive entries by checking the last activity
+    // Prevent duplicate consecutive entries by checking the last activity's query and tool
+    // For the teacher tool, we check the content, not just the title.
     const lastActivity = activities[0];
-    if (lastActivity?.query === newActivity.query && lastActivity?.tool === newActivity.tool) {
-      // To prevent spamming, we can update the last activity instead of adding a new one
+    const isSameQuery = lastActivity?.query === newActivity.query;
+    const isSameTool = lastActivity?.tool === newActivity.tool;
+    
+    let isSameTeacherContent = false;
+    if (isSameTool && newActivity.tool === 'المعلم الذكي') {
+        const lastPayload = lastActivity.payload as (SmartTeacherOutput & { query?: string });
+        const newPayload = newActivity.payload as (SmartTeacherOutput & { query?: string });
+        isSameTeacherContent = lastPayload.query === newPayload.query;
+    }
+
+    if (isSameTool && (isSameQuery || isSameTeacherContent)) {
        const updatedActivities = [newActivity, ...activities.slice(1)];
        saveActivities(updatedActivities);
-      return;
+       return;
     }
 
     const updatedActivities = [newActivity, ...activities];
@@ -91,11 +102,6 @@ export const ActivityLogProvider: React.FC<{ children: React.ReactNode, onActivi
   const getActivityById = useCallback((id: string) => {
     return activities.find(activity => activity.id === id);
   }, [activities]);
-
-  const handleActivityClick = (activity: ActivityLogItem) => {
-    onActivitySelect(activity);
-  };
-
 
   return (
     <ActivityLogContext.Provider value={{ activities, logActivity, removeActivity, clearActivities, getActivityById }}>
@@ -142,7 +148,9 @@ export const ActivityLogWrapper: React.FC<{ children: React.ReactNode }> = ({ ch
           setActiveTab('smart-translation');
           break;
         case 'المعلم الذكي':
-          setTeacherState({ query: (activity.payload as SmartTeacherOutput).analysis.summary, result: activity.payload as SmartTeacherOutput });
+          // The original lesson content is now stored in the payload.query
+          const payload = activity.payload as (SmartTeacherOutput & { query?: string });
+          setTeacherState({ query: payload.query || '', result: payload });
           setDictionaryState(null);
           setTranslationState(null);
           setActiveTab('smart-teacher');
