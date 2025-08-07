@@ -100,9 +100,9 @@ export function SmartDictionary({ initialState }: SmartDictionaryProps) {
   const handlePronunciation = async () => {
     if (!result || !result.word) return;
 
-    if (isSpeaking) {
-      audioRef.current?.pause();
-      audioRef.current!.currentTime = 0;
+    if (isSpeaking && audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
       setIsSpeaking(false);
       return;
     }
@@ -111,18 +111,16 @@ export function SmartDictionary({ initialState }: SmartDictionaryProps) {
     try {
         const cachedAudio = audioCache[result.word.toLowerCase()];
         if (cachedAudio) {
-            audioRef.current!.src = cachedAudio;
-            audioRef.current!.play();
+            playAudio(cachedAudio);
             return;
         }
 
         const response = await textToSpeech({ text: result.word });
         if (response.audioDataUri) {
           saveAudioToCache(result.word, response.audioDataUri);
-          if (audioRef.current) {
-            audioRef.current.src = response.audioDataUri;
-            audioRef.current.play();
-          }
+          playAudio(response.audioDataUri);
+        } else {
+            setIsSpeaking(false);
         }
     } catch (error) {
       console.error("TTS Error:", error);
@@ -135,6 +133,19 @@ export function SmartDictionary({ initialState }: SmartDictionaryProps) {
     }
   };
 
+  const playAudio = (audioDataUri: string) => {
+    if (audioRef.current) {
+        audioRef.current.pause();
+    }
+    const audio = new Audio(audioDataUri);
+    audioRef.current = audio;
+    audio.play();
+    audio.onended = () => setIsSpeaking(false);
+    audio.onerror = () => {
+        setIsSpeaking(false);
+        toast({ title: "خطأ في تشغيل الصوت", variant: "destructive" });
+    }
+  }
 
   // Word Processor State
   const [isProcessorOpen, setIsProcessorOpen] = useState(false);
@@ -220,15 +231,10 @@ export function SmartDictionary({ initialState }: SmartDictionaryProps) {
       }
     };
     
-    // Create an audio element and attach it to the body
-    const audio = new Audio();
-    audio.addEventListener('ended', () => setIsSpeaking(false));
-    audioRef.current = audio;
-    
     return () => {
       workerRef.current?.terminate();
       if (audioRef.current) {
-         audioRef.current.removeEventListener('ended', () => setIsSpeaking(false));
+         audioRef.current.pause();
          audioRef.current = null;
       }
     };

@@ -73,14 +73,10 @@ export function SmartTranslation({ initialState }: SmartTranslationProps) {
     } catch (error) {
       console.error('Failed to load cache:', error);
     }
-
-    const audio = new Audio();
-    audio.addEventListener('ended', () => setIsSpeaking(false));
-    audioRef.current = audio;
     
     return () => {
       if (audioRef.current) {
-         audioRef.current.removeEventListener('ended', () => setIsSpeaking(false));
+         audioRef.current.pause();
          audioRef.current = null;
       }
     };
@@ -215,9 +211,9 @@ export function SmartTranslation({ initialState }: SmartTranslationProps) {
   const handlePronunciation = async () => {
     if (!translation) return;
 
-    if (isSpeaking) {
-      audioRef.current?.pause();
-      audioRef.current!.currentTime = 0;
+    if (isSpeaking && audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
       setIsSpeaking(false);
       return;
     }
@@ -226,18 +222,16 @@ export function SmartTranslation({ initialState }: SmartTranslationProps) {
     try {
       const cachedAudio = audioCache[translation.toLowerCase()];
       if (cachedAudio) {
-        audioRef.current!.src = cachedAudio;
-        audioRef.current!.play();
+        playAudio(cachedAudio);
         return;
       }
       
       const response = await textToSpeech({ text: translation });
       if (response.audioDataUri) {
         saveAudioToCache(translation, response.audioDataUri);
-        if (audioRef.current) {
-          audioRef.current.src = response.audioDataUri;
-          audioRef.current.play();
-        }
+        playAudio(response.audioDataUri);
+      } else {
+        setIsSpeaking(false);
       }
     } catch (error) {
       console.error("TTS Error:", error);
@@ -249,6 +243,20 @@ export function SmartTranslation({ initialState }: SmartTranslationProps) {
       setIsSpeaking(false);
     }
   };
+  
+  const playAudio = (audioDataUri: string) => {
+    if (audioRef.current) {
+        audioRef.current.pause();
+    }
+    const audio = new Audio(audioDataUri);
+    audioRef.current = audio;
+    audio.play();
+    audio.onended = () => setIsSpeaking(false);
+    audio.onerror = () => {
+        setIsSpeaking(false);
+        toast({ title: "خطأ في تشغيل الصوت", variant: "destructive" });
+    }
+  }
 
   const handleCopy = () => {
     if (translation) {
@@ -330,9 +338,9 @@ export function SmartTranslation({ initialState }: SmartTranslationProps) {
 
         {translation && (
           <div className="mt-8 border-t border-primary/20 pt-6 animate-in fade-in duration-500">
-             <h3 className="text-2xl font-bold text-primary mb-4">النص المترجم:</h3>
-             <Card className="relative bg-background/50 rounded-lg p-6 pr-14">
-                <div className="absolute top-2 left-2 flex items-center gap-1">
+             <div className="flex justify-between items-center mb-4">
+                <h3 className="text-2xl font-bold text-primary">النص المترجم:</h3>
+                <div className="flex items-center gap-1">
                     <Button variant="ghost" size="icon" onClick={handlePronunciation} className="text-muted-foreground hover:bg-primary/10">
                         {isSpeaking ? <Pause className="h-5 w-5" /> : <Volume2 className="h-5 w-5" />}
                     </Button>
@@ -340,6 +348,8 @@ export function SmartTranslation({ initialState }: SmartTranslationProps) {
                         {isCopied ? <Check className="h-5 w-5 text-green-500" /> : <Clipboard className="h-5 w-5" />}
                     </Button>
                 </div>
+            </div>
+             <Card className="relative bg-background/50 rounded-lg p-6">
                 <p className="text-lg leading-relaxed">{translation}</p>
              </Card>
           </div>
