@@ -161,8 +161,9 @@ export function SmartDictionary({ initialState }: SmartDictionaryProps) {
     }
   };
 
-  const removeProcessedWord = (wordToRemove: string) => {
-     if (!window.confirm(`هل أنت متأكد من رغبتك في حذف كلمة "${wordToRemove}" من القاموس المحلي؟`)) {
+  const removeProcessedWord = (e: React.MouseEvent, wordToRemove: string) => {
+    e.stopPropagation(); // Prevent the row's onClick from firing.
+    if (!window.confirm(`هل أنت متأكد من رغبتك في حذف كلمة "${wordToRemove}" من القاموس المحلي؟`)) {
       return;
     }
     try {
@@ -546,25 +547,15 @@ export function SmartDictionary({ initialState }: SmartDictionaryProps) {
                 </TableHeader>
                 <TableBody>
                   {paginatedProcessedWords.map((wordData) => (
-                    <TableRow key={wordData.word} className="group">
-                      <TableCell 
-                        className="font-semibold cursor-pointer hover:text-primary"
-                        onClick={() => handleWordClick(wordData)}
-                      >
-                        {wordData.word}
-                      </TableCell>
-                      <TableCell 
-                         className="text-muted-foreground cursor-pointer hover:text-primary"
-                         onClick={() => handleWordClick(wordData)}
-                       >
-                         {wordData.arabicMeaning}
-                       </TableCell>
+                    <TableRow key={wordData.word} className="group cursor-pointer hover:bg-muted/50" onClick={() => handleWordClick(wordData)}>
+                      <TableCell className="font-semibold">{wordData.word}</TableCell>
+                      <TableCell className="text-muted-foreground">{wordData.arabicMeaning}</TableCell>
                       <TableCell className="text-center">
                         <Button 
                           variant="ghost" 
                           size="icon" 
                           className="h-8 w-8 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
-                          onClick={() => removeProcessedWord(wordData.word)}
+                          onClick={(e) => removeProcessedWord(e, wordData.word)}
                         >
                           <X className="h-4 w-4" />
                         </Button>
