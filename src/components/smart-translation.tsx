@@ -8,7 +8,6 @@ import { Languages, Loader2, Clipboard, Check, History, Camera, Volume2, Pause }
 
 import { smartTranslation, type SmartTranslationInput } from '@/ai/flows/smart-translation';
 import { extractTextFromImage } from '@/ai/flows/extract-text';
-import { textToSpeech } from '@/ai/flows/text-to-speech';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
@@ -26,7 +25,6 @@ type FormValues = z.infer<typeof FormSchema>;
 const isArabic = (text: string) => /[\u0600-\u06FF]/.test(text);
 
 const TRANSLATION_CACHE_KEY = 'smartTranslationsCache';
-const AUDIO_CACHE_KEY = 'audioCache';
 
 
 interface SmartTranslationProps {
@@ -43,9 +41,6 @@ export function SmartTranslation({ initialState }: SmartTranslationProps) {
   const [translationsCache, setTranslationsCache] = useState<Record<string, string>>({});
   const { logActivity } = useActivityLog();
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
-  const [audioCache, setAudioCache] = useState<Record<string, string>>({});
-
 
   const form = useForm<FormValues>({
     resolver: zodResolver(FormSchema),
@@ -67,31 +62,18 @@ export function SmartTranslation({ initialState }: SmartTranslationProps) {
       if (cachedTranslations) {
         setTranslationsCache(JSON.parse(cachedTranslations));
       }
-      const cachedAudio = localStorage.getItem(AUDIO_CACHE_KEY);
-       if (cachedAudio) {
-        setAudioCache(JSON.parse(cachedAudio));
-      }
     } catch (error) {
       console.error('Failed to load cache:', error);
     }
     
+    // Cleanup speech synthesis on component unmount
     return () => {
-      if (audioRef.current) {
-         audioRef.current.pause();
-         audioRef.current = null;
-      }
+        if (window.speechSynthesis?.speaking) {
+            window.speechSynthesis.cancel();
+        }
     };
   }, []);
 
-  const saveAudioToCache = (text: string, audioDataUri: string) => {
-    try {
-      const updatedCache = { ...audioCache, [text.toLowerCase()]: audioDataUri };
-      setAudioCache(updatedCache);
-      localStorage.setItem(AUDIO_CACHE_KEY, JSON.stringify(updatedCache));
-    } catch (error) {
-      console.error('Failed to save audio to cache:', error);
-    }
-  };
 
   const saveTranslationToCache = (original: string, translated: string) => {
     try {
@@ -208,60 +190,49 @@ export function SmartTranslation({ initialState }: SmartTranslationProps) {
     }
   };
 
-  const handlePronunciation = async () => {
-    if (!translation) return;
+  const handlePronunciation = () => {
+    if (!translation || typeof window === 'undefined') return;
 
-    if (isSpeaking && audioRef.current) {
-      audioRef.current.pause();
-      audioRef.current.currentTime = 0;
-      setIsSpeaking(false);
-      return;
-    }
-
-    setIsSpeaking(true);
-    try {
-      const cachedAudio = audioCache[translation.toLowerCase()];
-      if (cachedAudio) {
-        playAudio(cachedAudio);
+    const { speechSynthesis } = window;
+    if (!speechSynthesis) {
+        toast({
+            title: "ميزة الصوت غير مدعومة",
+            description: "متصفحك لا يدعم ميزة نطق النصوص.",
+            variant: "destructive",
+        });
         return;
-      }
-      
-      const response = await textToSpeech({ text: translation });
-      if (response.audioDataUri) {
-        saveAudioToCache(translation, response.audioDataUri);
-        playAudio(response.audioDataUri);
-      } else {
-        setIsSpeaking(false);
-        throw new Error("No audio data received.");
-      }
-    } catch (error) {
-      console.error("TTS Error:", error);
-      toast({
-        title: "خطأ في النطق",
-        description: "فشل في جلب نطق النص. ربما تم تجاوز الحصة اليومية.",
-        variant: "destructive",
-      });
-      setIsSpeaking(false);
     }
+
+    if (isSpeaking) {
+        speechSynthesis.cancel();
+        setIsSpeaking(false);
+        return;
+    }
+
+    const utterance = new SpeechSynthesisUtterance(translation);
+    const textIsArabic = isArabic(translation);
+    const targetLang = textIsArabic ? 'ar' : 'en';
+
+    const voices = speechSynthesis.getVoices();
+    const voice = voices.find(v => v.lang.startsWith(targetLang));
+    if (voice) {
+        utterance.voice = voice;
+    }
+    
+    utterance.onstart = () => setIsSpeaking(true);
+    utterance.onend = () => setIsSpeaking(false);
+    utterance.onerror = (event) => {
+        console.error("SpeechSynthesis Error:", event.error);
+        toast({
+            title: "خطأ في النطق",
+            description: "حدث خطأ أثناء محاولة نطق النص.",
+            variant: "destructive",
+        });
+        setIsSpeaking(false);
+    };
+
+    speechSynthesis.speak(utterance);
   };
-  
-  const playAudio = (audioDataUri: string) => {
-    if (audioRef.current) {
-        audioRef.current.pause();
-    }
-    const audio = new Audio(audioDataUri);
-    audioRef.current = audio;
-    audio.play().catch(e => {
-        console.error("Audio play failed:", e);
-        setIsSpeaking(false);
-        toast({ title: "خطأ في تشغيل الصوت", variant: "destructive" });
-    });
-    audio.onended = () => setIsSpeaking(false);
-    audio.onerror = () => {
-        setIsSpeaking(false);
-        toast({ title: "خطأ في مصدر الصوت", variant: "destructive" });
-    }
-  }
 
   const handleCopy = () => {
     if (translation) {
@@ -346,7 +317,7 @@ export function SmartTranslation({ initialState }: SmartTranslationProps) {
              <div className="flex justify-between items-center mb-4">
                 <h3 className="text-2xl font-bold text-primary">النص المترجم:</h3>
                 <div className="flex items-center gap-1">
-                    <Button variant="ghost" size="icon" onClick={handlePronunciation} disabled={isSpeaking} className="text-muted-foreground hover:bg-primary/10">
+                    <Button variant="ghost" size="icon" onClick={handlePronunciation} disabled={isLoading} className="text-muted-foreground hover:bg-primary/10">
                         {isSpeaking ? <Pause className="h-5 w-5" /> : <Volume2 className="h-5 w-5" />}
                     </Button>
                     <Button variant="ghost" size="icon" onClick={handleCopy} className="text-muted-foreground hover:bg-primary/10">

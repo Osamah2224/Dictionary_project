@@ -8,7 +8,6 @@ import { z } from 'zod';
 import { BookMarked, Loader2, Database, Search, Type, List, Repeat, ChevronsUpDown, Cog, Play, Pause, Square, ListChecks, Volume2 } from 'lucide-react';
 
 import { smartDictionary, type SmartDictionaryOutput } from '@/ai/flows/smart-dictionary';
-import { textToSpeech } from '@/ai/flows/text-to-speech';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Form, FormControl, FormField, FormItem, FormMessage } from '@/components/ui/form';
@@ -32,8 +31,6 @@ type FormValues = z.infer<typeof FormSchema>;
 type ResultState = SmartDictionaryOutput | null;
 
 const WORDS_PER_PAGE = 20;
-const AUDIO_CACHE_KEY = 'audioCache';
-
 
 const SmartDictionaryOutputSchema = z.object({
   word: z.string(),
@@ -71,8 +68,6 @@ export function SmartDictionary({ initialState }: SmartDictionaryProps) {
   const [isSpeaking, setIsSpeaking] = useState(false);
   const { toast } = useToast();
   const { logActivity } = useActivityLog();
-  const audioRef = useRef<HTMLAudioElement | null>(null);
-  const [audioCache, setAudioCache] = useState<Record<string, string>>({});
   
   const form = useForm<FormValues>({
     resolver: zodResolver(FormSchema),
@@ -82,94 +77,64 @@ export function SmartDictionary({ initialState }: SmartDictionaryProps) {
   });
 
   useEffect(() => {
-    try {
-        const cachedData = localStorage.getItem(AUDIO_CACHE_KEY);
-        if (cachedData) {
-            setAudioCache(JSON.parse(cachedData));
-        }
-    } catch (error) {
-        console.error('Failed to load audio cache:', error);
-    }
-  }, []);
-
-  const saveAudioToCache = (text: string, audioDataUri: string) => {
-    try {
-      const updatedCache = { ...audioCache, [text.toLowerCase()]: audioDataUri };
-      setAudioCache(updatedCache);
-      localStorage.setItem(AUDIO_CACHE_KEY, JSON.stringify(updatedCache));
-    } catch (error) {
-      console.error('Failed to save audio to cache:', error);
-    }
-  };
-
-
-  useEffect(() => {
     if (initialState) {
         form.setValue('query', initialState.query);
         setResult(initialState.result);
     }
   }, [initialState, form]);
 
+  // Cleanup speech synthesis on component unmount
+  useEffect(() => {
+    return () => {
+        if (window.speechSynthesis?.speaking) {
+            window.speechSynthesis.cancel();
+        }
+    };
+  }, []);
+
   
-  const handlePronunciation = async () => {
-    if (!result || !result.word) return;
+  const handlePronunciation = () => {
+    if (!result || !result.word || typeof window === 'undefined') return;
 
-    const wordToSpeak = result.word;
+    const { speechSynthesis } = window;
+    if (!speechSynthesis) {
+        toast({
+            title: "ميزة الصوت غير مدعومة",
+            description: "متصفحك لا يدعم ميزة نطق النصوص.",
+            variant: "destructive",
+        });
+        return;
+    }
 
-    if (isSpeaking && audioRef.current) {
-      audioRef.current.pause();
-      audioRef.current.currentTime = 0;
-      setIsSpeaking(false);
-      return;
+    if (isSpeaking) {
+        speechSynthesis.cancel();
+        setIsSpeaking(false);
+        return;
     }
     
-    setIsSpeaking(true);
+    const utterance = new SpeechSynthesisUtterance(result.word);
     
-    try {
-        // Check cache first
-        const cachedAudio = audioCache[wordToSpeak.toLowerCase()];
-        if (cachedAudio) {
-            playAudio(cachedAudio);
-            return;
-        }
-
-        // If not in cache, fetch from API
-        const response = await textToSpeech({ text: wordToSpeak });
-        if (response.audioDataUri) {
-          saveAudioToCache(wordToSpeak, response.audioDataUri);
-          playAudio(response.audioDataUri);
-        } else {
-            setIsSpeaking(false);
-            throw new Error("No audio data received.");
-        }
-    } catch (error) {
-      console.error("TTS Error:", error);
-      toast({
-        title: "خطأ في النطق",
-        description: "فشل في جلب نطق الكلمة. ربما تم تجاوز الحصة اليومية.",
-        variant: "destructive",
-      });
-      setIsSpeaking(false);
+    // Find an English voice
+    const voices = speechSynthesis.getVoices();
+    const englishVoice = voices.find(voice => voice.lang.startsWith('en-'));
+    if (englishVoice) {
+        utterance.voice = englishVoice;
     }
+    
+    utterance.onstart = () => setIsSpeaking(true);
+    utterance.onend = () => setIsSpeaking(false);
+    utterance.onerror = (event) => {
+        console.error("SpeechSynthesis Error:", event.error);
+        toast({
+            title: "خطأ في النطق",
+            description: "حدث خطأ أثناء محاولة نطق الكلمة.",
+            variant: "destructive",
+        });
+        setIsSpeaking(false);
+    };
+
+    speechSynthesis.speak(utterance);
   };
-
-  const playAudio = (audioDataUri: string) => {
-    if (audioRef.current) {
-        audioRef.current.pause();
-    }
-    const audio = new Audio(audioDataUri);
-    audioRef.current = audio;
-    audio.play().catch(e => {
-        console.error("Audio play failed:", e);
-        setIsSpeaking(false);
-        toast({ title: "خطأ في تشغيل الصوت", variant: "destructive" });
-    });
-    audio.onended = () => setIsSpeaking(false);
-    audio.onerror = () => {
-        setIsSpeaking(false);
-        toast({ title: "خطأ في مصدر الصوت", variant: "destructive" });
-    }
-  }
 
   // Word Processor State
   const [isProcessorOpen, setIsProcessorOpen] = useState(false);
@@ -247,10 +212,6 @@ export function SmartDictionary({ initialState }: SmartDictionaryProps) {
     
     return () => {
       workerRef.current?.terminate();
-      if (audioRef.current) {
-         audioRef.current.pause();
-         audioRef.current = null;
-      }
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
