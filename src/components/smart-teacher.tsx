@@ -1,12 +1,13 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
-import { Send, Loader2, GraduationCap, FileText, Sparkles, BookOpen, List, Repeat, ChevronsUpDown, Puzzle, VenetianMask, MessageSquareWarning, PencilRuler, CaseSensitive, Binary, Quote, Languages } from 'lucide-react';
+import { Send, Loader2, GraduationCap, FileText, Sparkles, BookOpen, List, Repeat, ChevronsUpDown, Puzzle, VenetianMask, MessageSquareWarning, PencilRuler, CaseSensitive, Binary, Quote, Languages, Camera, ImageUp } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { smartTeacher, type SmartTeacherInput, type SmartTeacherOutput } from '@/ai/flows/smart-teacher';
+import { extractTextFromImage } from '@/ai/flows/extract-text';
 import { Badge } from './ui/badge';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from './ui/accordion';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
@@ -22,8 +23,10 @@ export function SmartTeacher({ initialState }: SmartTeacherProps) {
   const [lessonContent, setLessonContent] = useState('');
   const [analysisResult, setAnalysisResult] = useState<SmartTeacherOutput | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [isExtracting, setIsExtracting] = useState(false);
   const { toast } = useToast();
   const { logActivity } = useActivityLog();
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (initialState) {
@@ -32,6 +35,57 @@ export function SmartTeacher({ initialState }: SmartTeacherProps) {
         setAnalysisResult(initialState.result);
     }
   }, [initialState]);
+  
+  const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      toast({
+        variant: 'destructive',
+        title: 'ملف غير صالح',
+        description: 'الرجاء اختيار ملف صورة فقط.',
+      });
+      return;
+    }
+    
+    setIsExtracting(true);
+    toast({ title: 'جاري استخراج النص من الصورة...' });
+
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = async () => {
+      try {
+        const photoDataUri = reader.result as string;
+        const result = await extractTextFromImage({ photoDataUri });
+        setLessonContent(prev => prev ? `${prev}\n\n${result.text}` : result.text);
+        toast({
+            variant: 'default',
+            title: 'تم استخراج النص بنجاح!',
+            description: 'تمت إضافة النص المستخرج إلى حقل الإدخال.'
+        });
+      } catch (error) {
+        console.error('OCR Error:', error);
+        toast({
+          variant: 'destructive',
+          title: 'حدث خطأ',
+          description: 'فشل في استخراج النص من الصورة. الرجاء المحاولة مرة أخرى.',
+        });
+      } finally {
+        setIsExtracting(false);
+        // Reset file input to allow uploading the same file again
+        if(fileInputRef.current) {
+            fileInputRef.current.value = '';
+        }
+      }
+    };
+    reader.onerror = (error) => {
+        console.error("File Reader Error:", error);
+        toast({ variant: 'destructive', title: 'خطأ في قراءة الملف' });
+        setIsExtracting(false);
+    }
+  };
+
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -98,14 +152,35 @@ export function SmartTeacher({ initialState }: SmartTeacherProps) {
         </CardHeader>
         <CardContent className="p-6">
           <form onSubmit={handleSubmit} className="space-y-4">
-            <Textarea
-              value={lessonContent}
-              onChange={(e) => setLessonContent(e.target.value)}
-              placeholder="الصق محتوى الدرس هنا..."
-              className="min-h-[250px] text-lg"
-              disabled={isLoading}
-            />
-            <Button type="submit" disabled={isLoading} className="w-full bg-primary hover:bg-primary/90 text-primary-foreground py-7 text-xl rounded-lg shadow-lg transform hover:scale-105 transition-transform duration-300">
+             <div className="relative">
+              <Textarea
+                value={lessonContent}
+                onChange={(e) => setLessonContent(e.target.value)}
+                placeholder="الصق محتوى الدرس هنا أو استخرجه من صورة..."
+                className="min-h-[250px] text-lg pr-12"
+                disabled={isLoading || isExtracting}
+              />
+              <input 
+                type="file" 
+                ref={fileInputRef} 
+                onChange={handleImageUpload}
+                className="hidden" 
+                accept="image/*" 
+              />
+              <Button 
+                type="button" 
+                variant="ghost" 
+                size="icon" 
+                className="absolute top-3 right-3 text-muted-foreground hover:text-primary"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={isExtracting}
+                aria-label="استخراج النص من صورة"
+                title="استخراج النص من صورة"
+              >
+                {isExtracting ? <Loader2 className="h-5 w-5 animate-spin" /> : <Camera className="h-5 w-5" />}
+              </Button>
+            </div>
+            <Button type="submit" disabled={isLoading || isExtracting} className="w-full bg-primary hover:bg-primary/90 text-primary-foreground py-7 text-xl rounded-lg shadow-lg transform hover:scale-105 transition-transform duration-300">
               {isLoading ? <Loader2 className="ml-2 h-6 w-6 animate-spin" /> : <Sparkles className="ml-2 h-6 w-6" />}
               <span>حلل الدرس</span>
             </Button>
