@@ -30,7 +30,6 @@ export function SmartTeacher({ initialState }: SmartTeacherProps) {
 
   useEffect(() => {
     if (initialState) {
-        // When restoring from activity log, the "query" is the lesson content itself.
         setLessonContent(initialState.query);
         setAnalysisResult(initialState.result);
     }
@@ -73,7 +72,6 @@ export function SmartTeacher({ initialState }: SmartTeacherProps) {
         });
       } finally {
         setIsExtracting(false);
-        // Reset file input to allow uploading the same file again
         if(fileInputRef.current) {
             fileInputRef.current.value = '';
         }
@@ -107,9 +105,7 @@ export function SmartTeacher({ initialState }: SmartTeacherProps) {
       setAnalysisResult(result);
       logActivity({ 
         tool: 'المعلم الذكي', 
-        // For the log list, we show the title.
         query: result.analysis.title || 'تحليل درس', 
-        // For the payload, we save the original content as the query to be able to restore it.
         payload: { ...result, query: lessonContent }
       });
     } catch (error) {
@@ -125,7 +121,7 @@ export function SmartTeacher({ initialState }: SmartTeacherProps) {
   };
 
   const ResultCard = ({ icon, title, children }: { icon: React.ReactNode, title: string, children: React.ReactNode }) => (
-    <Card className="w-full border-primary/10 shadow-lg">
+    <Card className="w-full">
       <CardHeader>
         <CardTitle className="flex items-center gap-3 text-2xl font-bold text-primary">
           {icon}
@@ -138,14 +134,14 @@ export function SmartTeacher({ initialState }: SmartTeacherProps) {
 
   return (
     <>
-      <Card className="w-full border-2 border-primary/20 shadow-xl rounded-xl overflow-hidden">
-        <CardHeader className="text-center bg-primary/5 pb-4">
+      <Card className="w-full">
+        <CardHeader className="text-center bg-muted/30 pb-4">
           <div className="flex justify-center mb-4">
             <div className="p-4 bg-primary/10 rounded-full">
               <GraduationCap className="h-16 w-16 text-primary" />
             </div>
           </div>
-          <CardTitle className="text-3xl font-headline font-bold text-primary">المعلم الذكي</CardTitle>
+          <CardTitle className="text-3xl font-bold text-primary">المعلم الذكي</CardTitle>
           <p className="text-muted-foreground text-lg pt-2">
             أدخل أي محتوى درس لغة إنجليزية واحصل على تحليل تعليمي متكامل وشامل. يعمل دون اتصال للدروس المحللة سابقاً عبر سجل النشاطات.
           </p>
@@ -157,7 +153,7 @@ export function SmartTeacher({ initialState }: SmartTeacherProps) {
                 value={lessonContent}
                 onChange={(e) => setLessonContent(e.target.value)}
                 placeholder="الصق محتوى الدرس هنا أو استخرجه من صورة..."
-                className="min-h-[250px] text-lg pr-12"
+                className="min-h-[250px] text-lg pr-12 border-2 border-primary/20 shadow-inner"
                 disabled={isLoading || isExtracting}
               />
               <input 
@@ -180,7 +176,7 @@ export function SmartTeacher({ initialState }: SmartTeacherProps) {
                 {isExtracting ? <Loader2 className="h-5 w-5 animate-spin" /> : <Camera className="h-5 w-5" />}
               </Button>
             </div>
-            <Button type="submit" disabled={isLoading || isExtracting} className="w-full bg-primary hover:bg-primary/90 text-primary-foreground py-7 text-xl rounded-lg shadow-lg transform hover:scale-105 transition-transform duration-300">
+            <Button type="submit" disabled={isLoading || isExtracting} className="w-full bg-primary hover:bg-primary/90 text-primary-foreground py-7 text-xl rounded-lg shadow-lg transform hover:scale-105 transition-transform duration-300 border-b-4 border-primary/50 dark:border-primary/20 active:border-b-0">
               {isLoading ? <Loader2 className="ml-2 h-6 w-6 animate-spin" /> : <Sparkles className="ml-2 h-6 w-6" />}
               <span>حلل الدرس</span>
             </Button>
@@ -202,18 +198,18 @@ export function SmartTeacher({ initialState }: SmartTeacherProps) {
             <div className="space-y-4">
               <h3 className="text-xl font-bold">{analysisResult.analysis.title}</h3>
               <div className="flex flex-wrap gap-4">
-                <Badge variant="secondary" className="text-md">النوع: {analysisResult.analysis.lessonType}</Badge>
-                <Badge variant="secondary" className="text-md">المستوى: {analysisResult.analysis.studentLevel}</Badge>
+                <Badge variant="secondary" className="text-md px-4 py-1">النوع: {analysisResult.analysis.lessonType}</Badge>
+                <Badge variant="secondary" className="text-md px-4 py-1">المستوى: {analysisResult.analysis.studentLevel}</Badge>
               </div>
-              <p className="text-muted-foreground leading-relaxed">{analysisResult.analysis.summary}</p>
+              <p className="text-muted-foreground leading-relaxed text-lg">{analysisResult.analysis.summary}</p>
             </div>
           </ResultCard>
 
           {/* Lesson with Translation */}
           <ResultCard icon={<BookOpen />} title="محتوى الدرس مع الترجمة">
-            <div className="space-y-4">
+            <div className="space-y-6">
               {analysisResult.lessonWithTranslation.map((item, index) => (
-                <div key={index}>
+                <div key={index} className="border-b pb-4 last:border-b-0">
                   <p className="text-lg font-semibold">{item.english}</p>
                   <p className="text-md text-muted-foreground">{item.arabic}</p>
                 </div>
@@ -392,7 +388,7 @@ export function SmartTeacher({ initialState }: SmartTeacherProps) {
                               <span className="font-semibold mr-2">{index + 1}.</span> {item.question} <Badge variant="outline" className="mr-auto">{item.type}</Badge>
                           </AccordionTrigger>
                           <AccordionContent className="px-2 pt-4">
-                              <div className="bg-green-500/10 text-green-800 dark:text-green-300 p-4 rounded-md">
+                              <div className="bg-green-500/10 text-green-800 dark:text-green-300 p-4 rounded-md border border-green-500/20">
                                   <p className="font-bold text-lg">{item.answer}</p>
                                   {item.answerTranslation && <p className="text-sm">{item.answerTranslation}</p>}
                               </div>

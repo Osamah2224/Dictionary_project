@@ -8,7 +8,7 @@ body {
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
+    --background: 220 20% 97%;
     --foreground: 222.2 84% 4.9%;
     --card: 0 0% 100%;
     --card-foreground: 222.2 84% 4.9%;
@@ -85,4 +85,31 @@ body {
   body {
     @apply bg-background text-foreground text-base;
   }
+}
+
+@layer components {
+  .card {
+    @apply shadow-lg border-2 border-black/5;
+  }
+  .dark .card {
+    @apply border-white/10;
+  }
+  
+  .table {
+    @apply border-separate border-spacing-0;
+  }
+  
+  .table th, .table td {
+     @apply border-b border-r;
+  }
+  .dark .table th, .dark .table td {
+    @apply border-white/10;
+  }
+
+   .table th:first-child, .table td:first-child {
+      @apply border-l;
+   }
+   .table tr:first-child th {
+     @apply border-t;
+   }
 }

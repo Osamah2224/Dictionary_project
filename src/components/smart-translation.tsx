@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useForm, type SubmitHandler } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Languages, Loader2, Clipboard, Check, History, Camera, Volume2, Pause } from 'lucide-react';
+import { Languages, Loader2, Clipboard, Check, History, Camera, Volume2 } from 'lucide-react';
 
 import { smartTranslation, type SmartTranslationInput } from '@/ai/flows/smart-translation';
 import { extractTextFromImage } from '@/ai/flows/extract-text';
@@ -21,7 +21,6 @@ const FormSchema = z.object({
 
 type FormValues = z.infer<typeof FormSchema>;
 
-// Function to detect if the text is primarily Arabic
 const isArabic = (text: string) => /[\u0600-\u06FF]/.test(text);
 
 const TRANSLATION_CACHE_KEY = 'smartTranslationsCache';
@@ -36,7 +35,6 @@ export function SmartTranslation({ initialState }: SmartTranslationProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [isExtracting, setIsExtracting] = useState(false);
   const [isCopied, setIsCopied] = useState(false);
-  const [isSpeaking, setIsSpeaking] = useState(false);
   const { toast } = useToast();
   const [translationsCache, setTranslationsCache] = useState<Record<string, string>>({});
   const { logActivity } = useActivityLog();
@@ -66,13 +64,18 @@ export function SmartTranslation({ initialState }: SmartTranslationProps) {
       console.error('Failed to load cache:', error);
     }
     
-    // Cleanup speech synthesis on component unmount
+    const handleVoicesChanged = () => {
+        window.speechSynthesis.getVoices();
+    };
+    window.speechSynthesis.onvoiceschanged = handleVoicesChanged;
+    handleVoicesChanged();
     return () => {
+        window.speechSynthesis.onvoiceschanged = null;
         if (window.speechSynthesis?.speaking) {
             window.speechSynthesis.cancel();
         }
     };
-  }, []);
+}, []);
 
 
   const saveTranslationToCache = (original: string, translated: string) => {
@@ -98,7 +101,6 @@ export function SmartTranslation({ initialState }: SmartTranslationProps) {
     const payload = { translation: '' };
 
     try {
-      // Check cache first
       if (translationsCache[query.toLowerCase()]) {
         const cachedTranslation = translationsCache[query.toLowerCase()];
         setTranslation(cachedTranslation);
@@ -106,13 +108,11 @@ export function SmartTranslation({ initialState }: SmartTranslationProps) {
         logActivity({ tool: 'الترجمة الذكية', query: query, payload });
         toast({
           title: 'تم العثور على الترجمة في الذاكرة المحلية',
-          description: 'هذه الترجمة تم جلبها من جهازك دون الحاجة للإنترنت.',
         });
         setIsLoading(false);
         return;
       }
 
-      // If not in cache, proceed with API call
       const targetLanguage = isArabic(query) ? 'English' : 'Arabic';
       
       const input: SmartTranslationInput = {
@@ -124,8 +124,6 @@ export function SmartTranslation({ initialState }: SmartTranslationProps) {
       setTranslation(translationResult.translation);
       payload.translation = translationResult.translation;
       logActivity({ tool: 'الترجمة الذكية', query: query, payload });
-      
-      // Save the new translation to cache
       saveTranslationToCache(query, translationResult.translation);
 
     } catch (error) {
@@ -190,8 +188,8 @@ export function SmartTranslation({ initialState }: SmartTranslationProps) {
     }
   };
 
-  const handlePronunciation = () => {
-    if (!translation || typeof window === 'undefined') return;
+ const handlePronunciation = (text: string) => {
+    if (!text || typeof window === 'undefined') return;
 
     const { speechSynthesis } = window;
     if (!speechSynthesis) {
@@ -202,25 +200,23 @@ export function SmartTranslation({ initialState }: SmartTranslationProps) {
         });
         return;
     }
-
-    if (isSpeaking) {
+    
+    if (speechSynthesis.speaking) {
         speechSynthesis.cancel();
-        setIsSpeaking(false);
-        return;
     }
 
-    const utterance = new SpeechSynthesisUtterance(translation);
-    const textIsArabic = isArabic(translation);
-    const targetLang = textIsArabic ? 'ar' : 'en';
+    const utterance = new SpeechSynthesisUtterance(text);
+    const targetLang = isArabic(text) ? 'ar' : 'en';
 
     const voices = speechSynthesis.getVoices();
     const voice = voices.find(v => v.lang.startsWith(targetLang));
     if (voice) {
         utterance.voice = voice;
     }
+     else {
+        console.warn(`No voice found for lang: ${targetLang}`);
+    }
     
-    utterance.onstart = () => setIsSpeaking(true);
-    utterance.onend = () => setIsSpeaking(false);
     utterance.onerror = (event) => {
         console.error("SpeechSynthesis Error:", event.error);
         toast({
@@ -228,7 +224,6 @@ export function SmartTranslation({ initialState }: SmartTranslationProps) {
             description: "حدث خطأ أثناء محاولة نطق النص.",
             variant: "destructive",
         });
-        setIsSpeaking(false);
     };
 
     speechSynthesis.speak(utterance);
@@ -244,9 +239,9 @@ export function SmartTranslation({ initialState }: SmartTranslationProps) {
   };
 
   return (
-    <Card className="w-full border-2 border-primary/20 shadow-xl rounded-xl overflow-hidden">
-      <CardHeader className="bg-primary/5">
-        <CardTitle className="flex items-center gap-3 text-2xl font-headline text-primary">
+    <Card className="w-full">
+      <CardHeader className="bg-muted/30">
+        <CardTitle className="flex items-center gap-3 text-2xl font-bold text-primary">
           <Languages className="h-8 w-8" />
           <span>الترجمة الذكية</span>
         </CardTitle>
@@ -265,12 +260,12 @@ export function SmartTranslation({ initialState }: SmartTranslationProps) {
               name="text"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel className="text-lg">النص الأصلي (عربي أو إنجليزي)</FormLabel>
+                  <FormLabel className="text-lg font-semibold">النص الأصلي (عربي أو إنجليزي)</FormLabel>
                   <FormControl>
                     <div className="relative">
                        <Textarea 
                          placeholder="أدخل النص هنا أو استخرجه من صورة..." 
-                         className="min-h-[200px] text-lg pr-12" 
+                         className="min-h-[200px] text-lg pr-12 border-2 border-primary/20 shadow-inner" 
                          {...field}
                          disabled={isLoading || isExtracting}
                        />
@@ -299,7 +294,7 @@ export function SmartTranslation({ initialState }: SmartTranslationProps) {
                 </FormItem>
               )}
             />
-            <Button type="submit" disabled={isLoading || isExtracting} className="w-full bg-primary hover:bg-primary/90 text-primary-foreground py-7 text-xl rounded-lg shadow-lg transform hover:scale-105 transition-transform duration-300">
+            <Button type="submit" disabled={isLoading || isExtracting} className="w-full bg-primary hover:bg-primary/90 text-primary-foreground py-7 text-xl rounded-lg shadow-lg transform hover:scale-105 transition-transform duration-300 border-b-4 border-primary/50 dark:border-primary/20 active:border-b-0">
                 {isLoading ? <Loader2 className="ml-2 h-6 w-6 animate-spin" /> : <Languages className="ml-2 h-6 w-6" />}
                 <span>ترجم النص</span>
             </Button>
@@ -316,17 +311,17 @@ export function SmartTranslation({ initialState }: SmartTranslationProps) {
           <div className="mt-8 border-t border-primary/20 pt-6 animate-in fade-in duration-500">
              <div className="flex justify-between items-center mb-4">
                 <h3 className="text-2xl font-bold text-primary">النص المترجم:</h3>
-                <div className="flex items-center gap-1">
-                    <Button variant="ghost" size="icon" onClick={handlePronunciation} disabled={isLoading} className="text-muted-foreground hover:bg-primary/10">
-                        {isSpeaking ? <Pause className="h-5 w-5" /> : <Volume2 className="h-5 w-5" />}
+            </div>
+             <Card className="relative bg-background/50 rounded-lg p-6 border-2">
+                <p className="text-lg leading-relaxed">{translation}</p>
+                 <div className="absolute top-2 left-2 flex items-center gap-1">
+                    <Button variant="ghost" size="icon" onClick={() => handlePronunciation(translation)} className="text-muted-foreground hover:bg-primary/10">
+                        <Volume2 className="h-5 w-5" />
                     </Button>
                     <Button variant="ghost" size="icon" onClick={handleCopy} className="text-muted-foreground hover:bg-primary/10">
                         {isCopied ? <Check className="h-5 w-5 text-green-500" /> : <Clipboard className="h-5 w-5" />}
                     </Button>
                 </div>
-            </div>
-             <Card className="relative bg-background/50 rounded-lg p-6">
-                <p className="text-lg leading-relaxed">{translation}</p>
              </Card>
           </div>
         )}

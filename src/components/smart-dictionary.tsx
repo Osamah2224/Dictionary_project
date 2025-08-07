@@ -5,7 +5,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useForm, type SubmitHandler } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { BookMarked, Loader2, Database, Search, Type, List, Repeat, ChevronsUpDown, Cog, Play, Pause, Square, ListChecks, Volume2 } from 'lucide-react';
+import { BookMarked, Loader2, Database, Search, Type, List, Repeat, ChevronsUpDown, Cog, Play, Pause, Square, ListChecks, Volume2, X } from 'lucide-react';
 
 import { smartDictionary, type SmartDictionaryOutput } from '@/ai/flows/smart-dictionary';
 import { Button } from '@/components/ui/button';
@@ -21,6 +21,7 @@ import { Progress } from '@/components/ui/progress';
 import { Pagination } from './pagination';
 import type { ProcessorWorkerMessage, WordProcessorResult } from '@/workers/word-processor.worker';
 import { useActivityLog } from '@/hooks/use-activity-log';
+import { ScrollArea } from './ui/scroll-area';
 
 const FormSchema = z.object({
   query: z.string().min(1, 'الرجاء إدخال كلمة أو عبارة.'),
@@ -30,7 +31,7 @@ type FormValues = z.infer<typeof FormSchema>;
 
 type ResultState = SmartDictionaryOutput | null;
 
-const WORDS_PER_PAGE = 20;
+const WORDS_PER_PAGE = 10;
 
 const SmartDictionaryOutputSchema = z.object({
   word: z.string(),
@@ -65,7 +66,6 @@ interface SmartDictionaryProps {
 export function SmartDictionary({ initialState }: SmartDictionaryProps) {
   const [result, setResult] = useState<ResultState>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [isSpeaking, setIsSpeaking] = useState(false);
   const { toast } = useToast();
   const { logActivity } = useActivityLog();
   
@@ -83,18 +83,23 @@ export function SmartDictionary({ initialState }: SmartDictionaryProps) {
     }
   }, [initialState, form]);
 
-  // Cleanup speech synthesis on component unmount
   useEffect(() => {
+    const handleVoicesChanged = () => {
+        // This is to ensure voices are loaded in all browsers.
+        window.speechSynthesis.getVoices();
+    };
+    window.speechSynthesis.onvoiceschanged = handleVoicesChanged;
+    handleVoicesChanged(); // initial call
     return () => {
+        window.speechSynthesis.onvoiceschanged = null;
         if (window.speechSynthesis?.speaking) {
             window.speechSynthesis.cancel();
         }
     };
-  }, []);
+}, []);
 
-  
-  const handlePronunciation = () => {
-    if (!result || !result.word || typeof window === 'undefined') return;
+  const handlePronunciation = (text: string, lang: string) => {
+    if (!text || typeof window === 'undefined') return;
 
     const { speechSynthesis } = window;
     if (!speechSynthesis) {
@@ -106,23 +111,20 @@ export function SmartDictionary({ initialState }: SmartDictionaryProps) {
         return;
     }
 
-    if (isSpeaking) {
+    if (speechSynthesis.speaking) {
         speechSynthesis.cancel();
-        setIsSpeaking(false);
-        return;
     }
     
-    const utterance = new SpeechSynthesisUtterance(result.word);
-    
-    // Find an English voice
+    const utterance = new SpeechSynthesisUtterance(text);
     const voices = speechSynthesis.getVoices();
-    const englishVoice = voices.find(voice => voice.lang.startsWith('en-'));
-    if (englishVoice) {
-        utterance.voice = englishVoice;
+    const voice = voices.find(v => v.lang.startsWith(lang));
+    
+    if (voice) {
+        utterance.voice = voice;
+    } else {
+        console.warn(`No voice found for lang: ${lang}`);
     }
     
-    utterance.onstart = () => setIsSpeaking(true);
-    utterance.onend = () => setIsSpeaking(false);
     utterance.onerror = (event) => {
         console.error("SpeechSynthesis Error:", event.error);
         toast({
@@ -130,7 +132,6 @@ export function SmartDictionary({ initialState }: SmartDictionaryProps) {
             description: "حدث خطأ أثناء محاولة نطق الكلمة.",
             variant: "destructive",
         });
-        setIsSpeaking(false);
     };
 
     speechSynthesis.speak(utterance);
@@ -159,25 +160,38 @@ export function SmartDictionary({ initialState }: SmartDictionaryProps) {
       // localStorage.removeItem('processedWordsDictionary');
     }
   };
+
+  const removeProcessedWord = (wordToRemove: string) => {
+     if (!window.confirm(`هل أنت متأكد من رغبتك في حذف كلمة "${wordToRemove}" من القاموس المحلي؟`)) {
+      return;
+    }
+    try {
+      const storedData = localStorage.getItem('processedWordsDictionary');
+      if (storedData) {
+        const dictionary = JSON.parse(storedData);
+        delete dictionary[wordToRemove.toLowerCase()];
+        localStorage.setItem('processedWordsDictionary', JSON.stringify(dictionary));
+        loadProcessedWords(); // Refresh the list
+        toast({title: `تم حذف "${wordToRemove}"`});
+      }
+    } catch (error) {
+      console.error("Failed to remove processed word:", error);
+      toast({title: "فشل حذف الكلمة", variant: "destructive"});
+    }
+  };
   
   const saveWordToDictionary = (wordData: WordProcessorResult) => {
     try {
-      // Validate data with Zod schema before saving
       const validatedData = SmartDictionaryOutputSchema.parse(wordData);
-      
       const currentData = localStorage.getItem('processedWordsDictionary');
       const currentDictionary = currentData ? JSON.parse(currentData) : {};
-
-      // Use the English word as the key, always
       currentDictionary[validatedData.word.toLowerCase()] = validatedData;
-
       localStorage.setItem('processedWordsDictionary', JSON.stringify(currentDictionary));
       
       setProcessedWords(prev => 
         [...prev.filter(p => p.word.toLowerCase() !== validatedData.word.toLowerCase()), validatedData]
         .sort((a,b) => a.word.localeCompare(b.word))
       );
-
     } catch (e) {
       console.error("Failed to save to local storage", e);
       toast({ title: "فشل حفظ النتيجة محلياً", variant: "destructive" });
@@ -199,13 +213,12 @@ export function SmartDictionary({ initialState }: SmartDictionaryProps) {
       } else if (type === 'DONE') {
         setProcessingStatus('idle');
         toast({ title: 'اكتملت المعالجة بنجاح!' });
-        loadProcessedWords(); // Refresh the list
+        loadProcessedWords(); 
       } else if (type === 'STOPPED') {
         setProcessingStatus('stopped');
         toast({ title: 'تم إيقاف المعالجة.', variant: 'default' });
         loadProcessedWords();
       } else if(type === 'WORD_PROCESSED'){
-        // The worker has processed a word, now the main thread saves it.
         saveWordToDictionary(payload);
       }
     };
@@ -231,7 +244,6 @@ export function SmartDictionary({ initialState }: SmartDictionaryProps) {
       const storedData = localStorage.getItem('processedWordsDictionary');
       if (storedData) {
         const dictionary: Record<string, WordProcessorResult> = JSON.parse(storedData);
-        // Search by English word (key) or Arabic meaning (value)
         const foundEntry = Object.values(dictionary).find(
             entry => entry.word.toLowerCase() === lowerCaseQuery || entry.arabicMeaning.toLowerCase() === lowerCaseQuery
         );
@@ -248,8 +260,6 @@ export function SmartDictionary({ initialState }: SmartDictionaryProps) {
       const aiResult = await smartDictionary({ query: query });
       setResult(aiResult);
       logActivity({ tool: 'القاموس الذكي', query: query, payload: { ...aiResult } });
-      
-      // Save the new result to the local dictionary
       saveWordToDictionary(aiResult);
 
     } catch (error) {
@@ -268,7 +278,7 @@ export function SmartDictionary({ initialState }: SmartDictionaryProps) {
     if (processingStatus === 'running') {
       workerRef.current?.postMessage({ command: 'pause' });
       setProcessingStatus('paused');
-    } else { // 'idle', 'paused', 'stopped'
+    } else { 
       const wordsToProcess = JSON.parse(localStorage.getItem('englishWords') || '[]');
       const processedDictionary = JSON.parse(localStorage.getItem('processedWordsDictionary') || '{}');
       workerRef.current?.postMessage({ command: 'start', wordsToProcess, processedDictionary });
@@ -293,19 +303,19 @@ export function SmartDictionary({ initialState }: SmartDictionaryProps) {
   );
 
   const BilingualTitle = ({ en, ar, icon }: { en: string; ar: string; icon: React.ReactNode }) => (
-    <CardTitle className="flex items-center gap-3 text-xl">
+    <CardTitle className="flex items-center gap-3 text-xl font-bold">
       {icon}
-      <span>{en} <span className="text-muted-foreground text-lg">/ {ar}</span></span>
+      <span>{en} <span className="text-muted-foreground text-lg font-normal">/ {ar}</span></span>
     </CardTitle>
   );
 
 
   return (
     <>
-    <Card className="w-full border-2 border-primary/20 shadow-xl rounded-xl overflow-hidden">
-      <CardHeader className="bg-primary/5">
+    <Card className="w-full">
+      <CardHeader className="bg-muted/30">
         <div className="flex items-center justify-between">
-          <CardTitle className="flex items-center gap-3 text-2xl font-headline text-primary">
+          <CardTitle className="flex items-center gap-3 text-2xl font-bold text-primary">
             <BookMarked className="h-8 w-8" />
             <span>القاموس الذكي</span>
           </CardTitle>
@@ -367,7 +377,7 @@ export function SmartDictionary({ initialState }: SmartDictionaryProps) {
                   <FormItem className="flex-grow">
                     <FormControl>
                       <div className="relative">
-                        <Input placeholder="أدخل الكلمة هنا..." {...field} className="py-6 text-lg pl-10" />
+                        <Input placeholder="أدخل الكلمة هنا..." {...field} className="py-6 text-lg pl-10 border-2 border-primary/20 shadow-inner" />
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
                       </div>
                     </FormControl>
@@ -376,7 +386,7 @@ export function SmartDictionary({ initialState }: SmartDictionaryProps) {
                 )}
               />
             </div>
-            <Button type="submit" disabled={isLoading} className="w-full bg-primary hover:bg-primary/90 text-primary-foreground py-7 text-xl rounded-lg shadow-lg transform hover:scale-105 transition-transform duration-300">
+            <Button type="submit" disabled={isLoading} className="w-full bg-primary hover:bg-primary/90 text-primary-foreground py-7 text-xl rounded-lg shadow-lg transform hover:scale-105 transition-transform duration-300 border-b-4 border-primary/50 dark:border-primary/20 active:border-b-0">
               {isLoading ? <Loader2 className="ml-2 h-6 w-6 animate-spin" /> : <Search className="ml-2 h-6 w-6" />}
               <span>بحث</span>
             </Button>
@@ -392,17 +402,16 @@ export function SmartDictionary({ initialState }: SmartDictionaryProps) {
         {result && (
           <div className="mt-8 border-t-2 border-primary/10 pt-6 animate-in fade-in duration-500 space-y-8">
             <div className="text-center relative">
-              <h2 className="text-5xl font-bold text-primary">{result.word}</h2>
+              <h2 className="text-5xl font-bold text-primary tracking-wider">{result.word}</h2>
               <p className="text-2xl text-muted-foreground mt-2">{result.arabicMeaning}</p>
               <Button
                 variant="ghost"
                 size="icon"
-                onClick={handlePronunciation}
-                disabled={isLoading}
+                onClick={() => handlePronunciation(result.word, 'en')}
                 className="absolute top-1/2 -translate-y-1/2 right-4 text-primary hover:bg-primary/10 rounded-full h-14 w-14"
                 title="نطق الكلمة"
               >
-                {isSpeaking ? <Pause className="h-7 w-7" /> : <Volume2 className="h-7 w-7" />}
+                <Volume2 className="h-7 w-7" />
               </Button>
             </div>
             
@@ -417,7 +426,7 @@ export function SmartDictionary({ initialState }: SmartDictionaryProps) {
 
                     <Card>
                         <CardHeader><BilingualTitle en="Part of Speech" ar="نوع الكلمة" icon={<Type className="text-primary" />} /></CardHeader>
-                        <CardContent><p className="text-lg">{result.partOfSpeech}</p></CardContent>
+                        <CardContent><p className="text-lg font-semibold">{result.partOfSpeech}</p></CardContent>
                     </Card>
                     
                     {result.derivatives && result.derivatives.length > 0 && (
@@ -466,14 +475,14 @@ export function SmartDictionary({ initialState }: SmartDictionaryProps) {
                       <Card>
                         <CardHeader><BilingualTitle en="Synonyms & Antonyms" ar="المرادفات والتضاد" icon={<ChevronsUpDown className="text-primary" />} /></CardHeader>
                         <CardContent>
-                             <div className="grid grid-cols-2 gap-4">
+                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                 {result.synonyms && result.synonyms.length > 0 && (
                                   <div>
                                       <h4 className="font-semibold text-lg mb-2 text-green-600">Synonyms <span className="text-muted-foreground text-sm">/ مرادفات</span></h4>
                                       <Table>
                                            <TableHeader><TableRow>
-                                                <TableHead>Word <span className="text-muted-foreground text-sm">/ الكلمة</span></TableHead>
-                                                <TableHead>Meaning <span className="text-muted-foreground text-sm">/ المعنى</span></TableHead>
+                                                <TableHead>Word</TableHead>
+                                                <TableHead>Meaning</TableHead>
                                           </TableRow></TableHeader>
                                           <TableBody>
                                               {result.synonyms.map((item, index) => (
@@ -491,8 +500,8 @@ export function SmartDictionary({ initialState }: SmartDictionaryProps) {
                                       <h4 className="font-semibold text-lg mb-2 text-red-600">Antonyms <span className="text-muted-foreground text-sm">/ متضادات</span></h4>
                                       <Table>
                                            <TableHeader><TableRow>
-                                                <TableHead>Word <span className="text-muted-foreground text-sm">/ الكلمة</span></TableHead>
-                                                <TableHead>Meaning <span className="text-muted-foreground text-sm">/ المعنى</span></TableHead>
+                                                <TableHead>Word</TableHead>
+                                                <TableHead>Meaning</TableHead>
                                           </TableRow></TableHeader>
                                           <TableBody>
                                               {result.antonyms.map((item, index) => (
@@ -516,9 +525,9 @@ export function SmartDictionary({ initialState }: SmartDictionaryProps) {
       </CardContent>
     </Card>
 
-    <Card className="w-full border-2 border-primary/20 shadow-xl rounded-xl mt-8">
+    <Card className="w-full mt-8">
       <CardHeader>
-        <CardTitle className="flex items-center gap-3 text-2xl font-headline text-primary">
+        <CardTitle className="flex items-center gap-3 text-2xl font-bold text-primary">
           <ListChecks className="h-8 w-8" />
           <span>الكلمات المعالجة في القاموس المحلي ({processedWords.length})</span>
         </CardTitle>
@@ -526,18 +535,45 @@ export function SmartDictionary({ initialState }: SmartDictionaryProps) {
       <CardContent>
          {processedWords.length > 0 ? (
           <>
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
-              {paginatedProcessedWords.map((wordData, index) => (
-                <Button 
-                  key={index} 
-                  variant="outline" 
-                  className="justify-start text-right"
-                  onClick={() => handleWordClick(wordData)}
-                >
-                  {wordData.word}
-                </Button>
-              ))}
-            </div>
+            <ScrollArea className="h-96 w-full">
+              <Table>
+                 <TableHeader>
+                  <TableRow>
+                    <TableHead>الكلمة الإنجليزية</TableHead>
+                    <TableHead>المعنى بالعربية</TableHead>
+                    <TableHead className="w-[50px] text-center">إجراء</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {paginatedProcessedWords.map((wordData) => (
+                    <TableRow key={wordData.word} className="group">
+                      <TableCell 
+                        className="font-semibold cursor-pointer hover:text-primary"
+                        onClick={() => handleWordClick(wordData)}
+                      >
+                        {wordData.word}
+                      </TableCell>
+                      <TableCell 
+                         className="text-muted-foreground cursor-pointer hover:text-primary"
+                         onClick={() => handleWordClick(wordData)}
+                       >
+                         {wordData.arabicMeaning}
+                       </TableCell>
+                      <TableCell className="text-center">
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          className="h-8 w-8 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                          onClick={() => removeProcessedWord(wordData.word)}
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </ScrollArea>
             <Pagination
               currentPage={currentPage}
               totalPages={Math.ceil(processedWords.length / WORDS_PER_PAGE)}
