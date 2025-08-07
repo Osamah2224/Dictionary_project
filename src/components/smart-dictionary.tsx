@@ -1,12 +1,14 @@
 'use client';
 
+import * as React from 'react';
 import { useState, useEffect, useRef } from 'react';
 import { useForm, type SubmitHandler } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { BookMarked, Loader2, Database, Search, Type, List, Repeat, ChevronsUpDown, Cog, Play, Pause, Square, ListChecks } from 'lucide-react';
+import { BookMarked, Loader2, Database, Search, Type, List, Repeat, ChevronsUpDown, Cog, Play, Pause, Square, ListChecks, Volume2 } from 'lucide-react';
 
 import { smartDictionary, type SmartDictionaryOutput } from '@/ai/flows/smart-dictionary';
+import { textToSpeech } from '@/ai/flows/text-to-speech';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Form, FormControl, FormField, FormItem, FormMessage } from '@/components/ui/form';
@@ -64,8 +66,10 @@ interface SmartDictionaryProps {
 export function SmartDictionary({ initialState }: SmartDictionaryProps) {
   const [result, setResult] = useState<ResultState>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [isSpeaking, setIsSpeaking] = useState(false);
   const { toast } = useToast();
   const { logActivity } = useActivityLog();
+  const audioRef = useRef<HTMLAudioElement | null>(null);
   
   const form = useForm<FormValues>({
     resolver: zodResolver(FormSchema),
@@ -80,6 +84,31 @@ export function SmartDictionary({ initialState }: SmartDictionaryProps) {
         setResult(initialState.result);
     }
   }, [initialState, form]);
+  
+  const handlePronunciation = async () => {
+    if (!result || !result.word) return;
+
+    setIsSpeaking(true);
+    try {
+      const response = await textToSpeech({ text: result.word });
+      if (response.audioDataUri) {
+        if (audioRef.current) {
+          audioRef.current.src = response.audioDataUri;
+          audioRef.current.play();
+        }
+      }
+    } catch (error) {
+      console.error("TTS Error:", error);
+      toast({
+        title: "خطأ في النطق",
+        description: "فشل في جلب نطق الكلمة.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSpeaking(false);
+    }
+  };
+
 
   // Word Processor State
   const [isProcessorOpen, setIsProcessorOpen] = useState(false);
@@ -155,8 +184,17 @@ export function SmartDictionary({ initialState }: SmartDictionaryProps) {
       }
     };
     
+    // Create an audio element and attach it to the body
+    const audio = new Audio();
+    audio.addEventListener('ended', () => setIsSpeaking(false));
+    audioRef.current = audio;
+    
     return () => {
       workerRef.current?.terminate();
+      if (audioRef.current) {
+         audioRef.current.removeEventListener('ended', () => setIsSpeaking(false));
+         audioRef.current = null;
+      }
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -336,9 +374,19 @@ export function SmartDictionary({ initialState }: SmartDictionaryProps) {
 
         {result && (
           <div className="mt-8 border-t-2 border-primary/10 pt-6 animate-in fade-in duration-500 space-y-8">
-            <div className="text-center">
+            <div className="text-center relative">
               <h2 className="text-5xl font-bold text-primary">{result.word}</h2>
               <p className="text-2xl text-muted-foreground mt-2">{result.arabicMeaning}</p>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={handlePronunciation}
+                disabled={isSpeaking || isLoading}
+                className="absolute top-1/2 -translate-y-1/2 right-4 text-primary hover:bg-primary/10 rounded-full h-14 w-14"
+                title="نطق الكلمة"
+              >
+                {isSpeaking ? <Loader2 className="h-7 w-7 animate-spin" /> : <Volume2 className="h-7 w-7" />}
+              </Button>
             </div>
             
             <Separator />

@@ -1,5 +1,3 @@
-'use client';
-
 import * as React from 'react';
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { useToast } from './use-toast';
@@ -10,11 +8,11 @@ import type { SmartTeacherOutput } from '@/ai/flows/smart-teacher';
 const ACTIVITY_LOG_KEY = 'appActivityLog';
 
 // We add the original query for the teacher tool to the payload
-export type ActivityPayload = SmartDictionaryOutput | (SmartTeacherOutput & { query?: string }) | { translation: string };
+export type ActivityPayload = SmartDictionaryOutput | (SmartTeacherOutput & { query?: string }) | { translation: string } | { audioDataUri: string };
 
 export interface ActivityLogItem {
   id: string;
-  tool: 'القاموس الذكي' | 'الترجمة الذكية' | 'المعلم الذكي';
+  tool: 'القاموس الذكي' | 'الترجمة الذكية' | 'المعلم الذكي' | 'تحويل النص إلى كلام';
   query: string; // The user input (word, text, or lesson title)
   payload: ActivityPayload; // The full result from the AI
   timestamp: string; // ISO 8601 format
@@ -130,31 +128,36 @@ export const ActivityLogWrapper: React.FC<{ children: React.ReactNode }> = ({ ch
   const [dictionaryState, setDictionaryState] = useState<{ query: string; result: SmartDictionaryOutput } | null>(null);
   const [translationState, setTranslationState] = useState<{ query: string; result: { translation: string } } | null>(null);
   const [teacherState, setTeacherState] = useState<{ query: string; result: SmartTeacherOutput } | null>(null);
+  const [ttsState, setTtsState] = useState<{ query: string; result: { audioDataUri: string } } | null>(null);
   const [activeTab, setActiveTab] = useState('smart-dictionary');
 
   const handleActivitySelect = (activity: ActivityLogItem) => {
       setSelectedActivity(activity);
+      // Reset all states
+      setDictionaryState(null);
+      setTranslationState(null);
+      setTeacherState(null);
+      setTtsState(null);
+
       switch(activity.tool) {
         case 'القاموس الذكي':
           setDictionaryState({ query: activity.query, result: activity.payload as SmartDictionaryOutput });
-          setTranslationState(null);
-          setTeacherState(null);
           setActiveTab('smart-dictionary');
           break;
         case 'الترجمة الذكية':
           setTranslationState({ query: activity.query, result: activity.payload as { translation: string } });
-          setDictionaryState(null);
-          setTeacherState(null);
           setActiveTab('smart-translation');
           break;
         case 'المعلم الذكي':
           // The original lesson content is now stored in the payload.query
           const payload = activity.payload as (SmartTeacherOutput & { query?: string });
           setTeacherState({ query: payload.query || '', result: payload });
-          setDictionaryState(null);
-          setTranslationState(null);
           setActiveTab('smart-teacher');
           break;
+        case 'تحويل النص إلى كلام':
+            setTtsState({ query: activity.query, result: activity.payload as { audioDataUri: string } });
+            setActiveTab('text-to-speech');
+            break;
       }
   };
 
@@ -168,6 +171,7 @@ export const ActivityLogWrapper: React.FC<{ children: React.ReactNode }> = ({ ch
                         initialDictionaryState: dictionaryState,
                         initialTranslationState: translationState,
                         initialTeacherState: teacherState,
+                        initialTTSState: ttsState,
                         activeTab,
                         setActiveTab
                     } as any);

@@ -2,8 +2,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { SmartDictionary } from '@/components/smart-dictionary';
 import { SmartTranslation } from '@/components/smart-translation';
 import { SmartTeacher } from '@/components/smart-teacher';
+import { TextToSpeech } from '@/components/text-to-speech';
 import { ThemeToggle } from '@/components/theme-toggle';
-import { Languages, GraduationCap, BookMarked } from 'lucide-react';
+import { Languages, GraduationCap, BookMarked, AudioLines } from 'lucide-react';
 import Link from 'next/link';
 
 interface HomeProps {
@@ -12,6 +13,7 @@ interface HomeProps {
   initialDictionaryState?: any;
   initialTranslationState?: any;
   initialTeacherState?: any;
+  initialTTSState?: any;
 }
 
 
@@ -20,7 +22,8 @@ export default function Home({
   setActiveTab,
   initialDictionaryState,
   initialTranslationState,
-  initialTeacherState 
+  initialTeacherState,
+  initialTTSState
 }: HomeProps) {
   return (
     <div className="flex flex-col items-center min-h-screen bg-background text-foreground p-4 md:p-8 font-body">
@@ -33,7 +36,7 @@ export default function Home({
         </header>
         <main>
           <Tabs value={activeTab} onValueChange={setActiveTab} defaultValue="smart-dictionary" className="w-full">
-            <TabsList className="flex justify-center w-full bg-transparent p-0 gap-6 mb-8">
+            <TabsList className="flex flex-wrap justify-center w-full bg-transparent p-0 gap-6 mb-8">
               <TabsTrigger value="smart-dictionary" className="text-lg md:text-xl py-3 px-6 rounded-lg shadow-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-2xl transition-all duration-300 transform hover:-translate-y-1">
                 <BookMarked className="ml-2 h-5 w-5" />
                 القاموس الذكي
@@ -46,6 +49,10 @@ export default function Home({
                 <GraduationCap className="ml-2 h-5 w-5" />
                 المعلم الذكي
               </TabsTrigger>
+               <TabsTrigger value="text-to-speech" className="text-lg md:text-xl py-3 px-6 rounded-lg shadow-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-2xl transition-all duration-300 transform hover:-translate-y-1">
+                <AudioLines className="ml-2 h-5 w-5" />
+                تحويل النص إلى كلام
+              </TabsTrigger>
             </TabsList>
             <TabsContent value="smart-dictionary" className="mt-8">
               <SmartDictionary initialState={initialDictionaryState} />
@@ -55,6 +62,9 @@ export default function Home({
             </TabsContent>
             <TabsContent value="smart-teacher" className="mt-8">
               <SmartTeacher initialState={initialTeacherState} />
+            </TabsContent>
+            <TabsContent value="text-to-speech" className="mt-8">
+                <TextToSpeech initialState={initialTTSState} />
             </TabsContent>
           </Tabs>
         </main>

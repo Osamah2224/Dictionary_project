@@ -6,4 +6,4 @@ import '@/ai/flows/smart-dictionary.ts';
 import '@/ai/flows/smart-translation.ts';
 import '@/ai/flows/smart-teacher.ts';
 import '@/ai/flows/extract-text.ts';
-
+import '@/ai/flows/text-to-speech.ts';
