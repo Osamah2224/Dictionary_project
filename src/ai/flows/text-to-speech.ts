@@ -68,7 +68,6 @@ const textToSpeechFlow = ai.defineFlow(
         responseModalities: ['AUDIO'],
         speechConfig: {
           voiceConfig: {
-            // Changed to a supported female voice.
             prebuiltVoiceConfig: { voiceName: 'vindemiatrix' },
           },
         },
