@@ -10,11 +10,11 @@ import type { SmartTeacherOutput } from '@/ai/flows/smart-teacher';
 const ACTIVITY_LOG_KEY = 'appActivityLog';
 
 // We add the original query for the teacher tool to the payload
-export type ActivityPayload = SmartDictionaryOutput | (SmartTeacherOutput & { query?: string }) | { translation: string } | { audioDataUri: string };
+export type ActivityPayload = SmartDictionaryOutput | (SmartTeacherOutput & { query?: string }) | { translation: string };
 
 export interface ActivityLogItem {
   id: string;
-  tool: 'القاموس الذكي' | 'الترجمة الذكية' | 'المعلم الذكي' | 'تحويل النص إلى كلام';
+  tool: 'القاموس الذكي' | 'الترجمة الذكية' | 'المعلم الذكي';
   query: string; // The user input (word, text, or lesson title)
   payload: ActivityPayload; // The full result from the AI
   timestamp: string; // ISO 8601 format
@@ -130,7 +130,6 @@ export const ActivityLogWrapper: React.FC<{ children: React.ReactNode }> = ({ ch
   const [dictionaryState, setDictionaryState] = useState<{ query: string; result: SmartDictionaryOutput } | null>(null);
   const [translationState, setTranslationState] = useState<{ query: string; result: { translation: string } } | null>(null);
   const [teacherState, setTeacherState] = useState<{ query: string; result: SmartTeacherOutput } | null>(null);
-  const [ttsState, setTtsState] = useState<{ query: string; result: { audioDataUri: string } } | null>(null);
   const [activeTab, setActiveTab] = useState('smart-dictionary');
 
   const handleActivitySelect = (activity: ActivityLogItem) => {
@@ -139,7 +138,6 @@ export const ActivityLogWrapper: React.FC<{ children: React.ReactNode }> = ({ ch
       setDictionaryState(null);
       setTranslationState(null);
       setTeacherState(null);
-      setTtsState(null);
 
       switch(activity.tool) {
         case 'القاموس الذكي':
@@ -156,10 +154,6 @@ export const ActivityLogWrapper: React.FC<{ children: React.ReactNode }> = ({ ch
           setTeacherState({ query: payload.query || '', result: payload });
           setActiveTab('smart-teacher');
           break;
-        case 'تحويل النص إلى كلام':
-            setTtsState({ query: activity.query, result: activity.payload as { audioDataUri: string } });
-            setActiveTab('text-to-speech');
-            break;
       }
   };
 
@@ -173,7 +167,6 @@ export const ActivityLogWrapper: React.FC<{ children: React.ReactNode }> = ({ ch
                         initialDictionaryState: dictionaryState,
                         initialTranslationState: translationState,
                         initialTeacherState: teacherState,
-                        initialTTSState: ttsState,
                         activeTab,
                         setActiveTab
                     } as any);

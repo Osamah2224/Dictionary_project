@@ -4,7 +4,7 @@ import * as React from 'react';
 import { useActivityLog, useActivitySelect } from '@/hooks/use-activity-log';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger, SheetFooter, SheetDescription, SheetClose } from '@/components/ui/sheet';
-import { History, Trash2, BookMarked, Languages, GraduationCap, X, AudioLines } from 'lucide-react';
+import { History, Trash2, BookMarked, Languages, GraduationCap, X } from 'lucide-react';
 import { ScrollArea } from './ui/scroll-area';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { formatDistanceToNow } from 'date-fns';
@@ -14,7 +14,6 @@ const TOOL_ICONS = {
   'القاموس الذكي': <BookMarked className="h-5 w-5 text-primary" />,
   'الترجمة الذكية': <Languages className="h-5 w-5 text-primary" />,
   'المعلم الذكي': <GraduationCap className="h-5 w-5 text-primary" />,
-  'تحويل النص إلى كلام': <AudioLines className="h-5 w-5 text-primary" />,
 };
 
 export function ActivityLog() {

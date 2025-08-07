@@ -88,6 +88,13 @@ export function SmartDictionary({ initialState }: SmartDictionaryProps) {
   const handlePronunciation = async () => {
     if (!result || !result.word) return;
 
+    if (isSpeaking) {
+      audioRef.current?.pause();
+      audioRef.current!.currentTime = 0;
+      setIsSpeaking(false);
+      return;
+    }
+
     setIsSpeaking(true);
     try {
       const response = await textToSpeech({ text: result.word });
@@ -104,7 +111,6 @@ export function SmartDictionary({ initialState }: SmartDictionaryProps) {
         description: "فشل في جلب نطق الكلمة.",
         variant: "destructive",
       });
-    } finally {
       setIsSpeaking(false);
     }
   };
@@ -381,11 +387,11 @@ export function SmartDictionary({ initialState }: SmartDictionaryProps) {
                 variant="ghost"
                 size="icon"
                 onClick={handlePronunciation}
-                disabled={isSpeaking || isLoading}
+                disabled={isLoading}
                 className="absolute top-1/2 -translate-y-1/2 right-4 text-primary hover:bg-primary/10 rounded-full h-14 w-14"
                 title="نطق الكلمة"
               >
-                {isSpeaking ? <Loader2 className="h-7 w-7 animate-spin" /> : <Volume2 className="h-7 w-7" />}
+                {isSpeaking ? <Pause className="h-7 w-7" /> : <Volume2 className="h-7 w-7" />}
               </Button>
             </div>
             

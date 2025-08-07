@@ -4,10 +4,11 @@ import { useState, useEffect, useRef } from 'react';
 import { useForm, type SubmitHandler } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Languages, Loader2, Clipboard, Check, History, Camera } from 'lucide-react';
+import { Languages, Loader2, Clipboard, Check, History, Camera, Volume2, Pause } from 'lucide-react';
 
 import { smartTranslation, type SmartTranslationInput } from '@/ai/flows/smart-translation';
 import { extractTextFromImage } from '@/ai/flows/extract-text';
+import { textToSpeech } from '@/ai/flows/text-to-speech';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
@@ -35,10 +36,13 @@ export function SmartTranslation({ initialState }: SmartTranslationProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [isExtracting, setIsExtracting] = useState(false);
   const [isCopied, setIsCopied] = useState(false);
+  const [isSpeaking, setIsSpeaking] = useState(false);
   const { toast } = useToast();
   const [translationsCache, setTranslationsCache] = useState<Record<string, string>>({});
   const { logActivity } = useActivityLog();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+
 
   const form = useForm<FormValues>({
     resolver: zodResolver(FormSchema),
@@ -63,6 +67,17 @@ export function SmartTranslation({ initialState }: SmartTranslationProps) {
     } catch (error) {
       console.error('Failed to load translations cache:', error);
     }
+
+    const audio = new Audio();
+    audio.addEventListener('ended', () => setIsSpeaking(false));
+    audioRef.current = audio;
+    
+    return () => {
+      if (audioRef.current) {
+         audioRef.current.removeEventListener('ended', () => setIsSpeaking(false));
+         audioRef.current = null;
+      }
+    };
   }, []);
 
   const saveTranslationToCache = (original: string, translated: string) => {
@@ -181,6 +196,36 @@ export function SmartTranslation({ initialState }: SmartTranslationProps) {
     }
   };
 
+  const handlePronunciation = async () => {
+    if (!translation) return;
+
+    if (isSpeaking) {
+      audioRef.current?.pause();
+      audioRef.current!.currentTime = 0;
+      setIsSpeaking(false);
+      return;
+    }
+
+    setIsSpeaking(true);
+    try {
+      const response = await textToSpeech({ text: translation });
+      if (response.audioDataUri) {
+        if (audioRef.current) {
+          audioRef.current.src = response.audioDataUri;
+          audioRef.current.play();
+        }
+      }
+    } catch (error) {
+      console.error("TTS Error:", error);
+      toast({
+        title: "خطأ في النطق",
+        description: "فشل في جلب نطق النص.",
+        variant: "destructive",
+      });
+      setIsSpeaking(false);
+    }
+  };
+
   const handleCopy = () => {
     if (translation) {
       navigator.clipboard.writeText(translation);
@@ -262,11 +307,16 @@ export function SmartTranslation({ initialState }: SmartTranslationProps) {
         {translation && (
           <div className="mt-8 border-t border-primary/20 pt-6 animate-in fade-in duration-500">
              <h3 className="text-2xl font-bold text-primary mb-4">النص المترجم:</h3>
-             <Card className="relative bg-background/50 rounded-lg p-6">
+             <Card className="relative bg-background/50 rounded-lg p-6 pr-14">
+                <div className="absolute top-2 left-2 flex items-center gap-1">
+                    <Button variant="ghost" size="icon" onClick={handlePronunciation} className="text-muted-foreground hover:bg-primary/10">
+                        {isSpeaking ? <Pause className="h-5 w-5" /> : <Volume2 className="h-5 w-5" />}
+                    </Button>
+                    <Button variant="ghost" size="icon" onClick={handleCopy} className="text-muted-foreground hover:bg-primary/10">
+                        {isCopied ? <Check className="h-5 w-5 text-green-500" /> : <Clipboard className="h-5 w-5" />}
+                    </Button>
+                </div>
                 <p className="text-lg leading-relaxed">{translation}</p>
-                <Button variant="ghost" size="icon" className="absolute top-2 left-2 text-muted-foreground hover:bg-primary/10" onClick={handleCopy}>
-                    {isCopied ? <Check className="h-5 w-5 text-green-500" /> : <Clipboard className="h-5 w-5" />}
-                </Button>
              </Card>
           </div>
         )}
