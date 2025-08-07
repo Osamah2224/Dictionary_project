@@ -32,6 +32,7 @@ type FormValues = z.infer<typeof FormSchema>;
 type ResultState = SmartDictionaryOutput | null;
 
 const WORDS_PER_PAGE = 20;
+const AUDIO_CACHE_KEY = 'dictionaryAudioCache';
 
 const SmartDictionaryOutputSchema = z.object({
   word: z.string(),
@@ -70,6 +71,7 @@ export function SmartDictionary({ initialState }: SmartDictionaryProps) {
   const { toast } = useToast();
   const { logActivity } = useActivityLog();
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const [audioCache, setAudioCache] = useState<Record<string, string>>({});
   
   const form = useForm<FormValues>({
     resolver: zodResolver(FormSchema),
@@ -84,6 +86,16 @@ export function SmartDictionary({ initialState }: SmartDictionaryProps) {
         setResult(initialState.result);
     }
   }, [initialState, form]);
+
+  const saveAudioToCache = (word: string, audioDataUri: string) => {
+    try {
+      const updatedCache = { ...audioCache, [word.toLowerCase()]: audioDataUri };
+      setAudioCache(updatedCache);
+      localStorage.setItem(AUDIO_CACHE_KEY, JSON.stringify(updatedCache));
+    } catch (error) {
+      console.error('Failed to save audio to cache:', error);
+    }
+  };
   
   const handlePronunciation = async () => {
     if (!result || !result.word) return;
@@ -94,16 +106,24 @@ export function SmartDictionary({ initialState }: SmartDictionaryProps) {
       setIsSpeaking(false);
       return;
     }
-
+    
     setIsSpeaking(true);
     try {
-      const response = await textToSpeech({ text: result.word });
-      if (response.audioDataUri) {
-        if (audioRef.current) {
-          audioRef.current.src = response.audioDataUri;
-          audioRef.current.play();
+        const cachedAudio = audioCache[result.word.toLowerCase()];
+        if (cachedAudio) {
+            audioRef.current!.src = cachedAudio;
+            audioRef.current!.play();
+            return;
         }
-      }
+
+        const response = await textToSpeech({ text: result.word });
+        if (response.audioDataUri) {
+          saveAudioToCache(result.word, response.audioDataUri);
+          if (audioRef.current) {
+            audioRef.current.src = response.audioDataUri;
+            audioRef.current.play();
+          }
+        }
     } catch (error) {
       console.error("TTS Error:", error);
       toast({
@@ -167,6 +187,16 @@ export function SmartDictionary({ initialState }: SmartDictionaryProps) {
 
   useEffect(() => {
     loadProcessedWords();
+    
+    try {
+      const cachedAudio = localStorage.getItem(AUDIO_CACHE_KEY);
+      if (cachedAudio) {
+        setAudioCache(JSON.parse(cachedAudio));
+      }
+    } catch (error) {
+      console.error("Failed to load audio cache", error);
+    }
+
 
     workerRef.current = new Worker(new URL('../workers/word-processor.worker.ts', import.meta.url));
     

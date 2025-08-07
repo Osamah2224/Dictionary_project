@@ -26,6 +26,7 @@ type FormValues = z.infer<typeof FormSchema>;
 const isArabic = (text: string) => /[\u0600-\u06FF]/.test(text);
 
 const TRANSLATION_CACHE_KEY = 'smartTranslationsCache';
+const AUDIO_CACHE_KEY = 'translationAudioCache';
 
 interface SmartTranslationProps {
   initialState?: { query: string; result: { translation: string } } | null;
@@ -39,6 +40,7 @@ export function SmartTranslation({ initialState }: SmartTranslationProps) {
   const [isSpeaking, setIsSpeaking] = useState(false);
   const { toast } = useToast();
   const [translationsCache, setTranslationsCache] = useState<Record<string, string>>({});
+  const [audioCache, setAudioCache] = useState<Record<string, string>>({});
   const { logActivity } = useActivityLog();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -64,8 +66,12 @@ export function SmartTranslation({ initialState }: SmartTranslationProps) {
       if (cachedData) {
         setTranslationsCache(JSON.parse(cachedData));
       }
+      const cachedAudio = localStorage.getItem(AUDIO_CACHE_KEY);
+      if (cachedAudio) {
+        setAudioCache(JSON.parse(cachedAudio));
+      }
     } catch (error) {
-      console.error('Failed to load translations cache:', error);
+      console.error('Failed to load cache:', error);
     }
 
     const audio = new Audio();
@@ -88,6 +94,16 @@ export function SmartTranslation({ initialState }: SmartTranslationProps) {
     } catch (error) {
       console.error('Failed to save translation to cache:', error);
       toast({ title: 'فشل حفظ الترجمة محلياً', variant: 'destructive' });
+    }
+  };
+  
+  const saveAudioToCache = (text: string, audioDataUri: string) => {
+    try {
+      const updatedCache = { ...audioCache, [text.toLowerCase()]: audioDataUri };
+      setAudioCache(updatedCache);
+      localStorage.setItem(AUDIO_CACHE_KEY, JSON.stringify(updatedCache));
+    } catch (error) {
+      console.error('Failed to save audio to cache:', error);
     }
   };
 
@@ -208,8 +224,16 @@ export function SmartTranslation({ initialState }: SmartTranslationProps) {
 
     setIsSpeaking(true);
     try {
+      const cachedAudio = audioCache[translation.toLowerCase()];
+      if (cachedAudio) {
+        audioRef.current!.src = cachedAudio;
+        audioRef.current!.play();
+        return;
+      }
+      
       const response = await textToSpeech({ text: translation });
       if (response.audioDataUri) {
+        saveAudioToCache(translation, response.audioDataUri);
         if (audioRef.current) {
           audioRef.current.src = response.audioDataUri;
           audioRef.current.play();
