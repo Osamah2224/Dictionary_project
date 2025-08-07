@@ -1,12 +1,13 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useForm, type SubmitHandler } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Languages, Loader2, Clipboard, Check, History } from 'lucide-react';
+import { Languages, Loader2, Clipboard, Check, History, Camera } from 'lucide-react';
 
 import { smartTranslation, type SmartTranslationInput } from '@/ai/flows/smart-translation';
+import { extractTextFromImage } from '@/ai/flows/extract-text';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
@@ -32,10 +33,12 @@ interface SmartTranslationProps {
 export function SmartTranslation({ initialState }: SmartTranslationProps) {
   const [translation, setTranslation] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [isExtracting, setIsExtracting] = useState(false);
   const [isCopied, setIsCopied] = useState(false);
   const { toast } = useToast();
   const [translationsCache, setTranslationsCache] = useState<Record<string, string>>({});
   const { logActivity } = useActivityLog();
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(FormSchema),
@@ -96,6 +99,7 @@ export function SmartTranslation({ initialState }: SmartTranslationProps) {
           title: 'تم العثور على الترجمة في الذاكرة المحلية',
           description: 'هذه الترجمة تم جلبها من جهازك دون الحاجة للإنترنت.',
         });
+        setIsLoading(false);
         return;
       }
 
@@ -124,6 +128,56 @@ export function SmartTranslation({ initialState }: SmartTranslationProps) {
       });
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      toast({
+        variant: 'destructive',
+        title: 'ملف غير صالح',
+        description: 'الرجاء اختيار ملف صورة فقط.',
+      });
+      return;
+    }
+    
+    setIsExtracting(true);
+    toast({ title: 'جاري استخراج النص من الصورة...' });
+
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = async () => {
+      try {
+        const photoDataUri = reader.result as string;
+        const result = await extractTextFromImage({ photoDataUri });
+        const currentText = form.getValues('text');
+        form.setValue('text', currentText ? `${currentText}\n\n${result.text}` : result.text);
+        toast({
+            variant: 'default',
+            title: 'تم استخراج النص بنجاح!',
+            description: 'تمت إضافة النص المستخرج إلى حقل الإدخال.'
+        });
+      } catch (error) {
+        console.error('OCR Error:', error);
+        toast({
+          variant: 'destructive',
+          title: 'حدث خطأ',
+          description: 'فشل في استخراج النص من الصورة. الرجاء المحاولة مرة أخرى.',
+        });
+      } finally {
+        setIsExtracting(false);
+        if(fileInputRef.current) {
+            fileInputRef.current.value = '';
+        }
+      }
+    };
+    reader.onerror = (error) => {
+        console.error("File Reader Error:", error);
+        toast({ variant: 'destructive', title: 'خطأ في قراءة الملف' });
+        setIsExtracting(false);
     }
   };
 
@@ -160,13 +214,39 @@ export function SmartTranslation({ initialState }: SmartTranslationProps) {
                 <FormItem>
                   <FormLabel className="text-lg">النص الأصلي (عربي أو إنجليزي)</FormLabel>
                   <FormControl>
-                    <Textarea placeholder="أدخل النص هنا..." className="min-h-[200px] text-lg" {...field} />
+                    <div className="relative">
+                       <Textarea 
+                         placeholder="أدخل النص هنا أو استخرجه من صورة..." 
+                         className="min-h-[200px] text-lg pr-12" 
+                         {...field}
+                         disabled={isLoading || isExtracting}
+                       />
+                       <input 
+                         type="file" 
+                         ref={fileInputRef} 
+                         onChange={handleImageUpload}
+                         className="hidden" 
+                         accept="image/*" 
+                       />
+                       <Button 
+                         type="button" 
+                         variant="ghost" 
+                         size="icon" 
+                         className="absolute top-3 right-3 text-muted-foreground hover:text-primary"
+                         onClick={() => fileInputRef.current?.click()}
+                         disabled={isExtracting}
+                         aria-label="استخراج النص من صورة"
+                         title="استخراج النص من صورة"
+                       >
+                         {isExtracting ? <Loader2 className="h-5 w-5 animate-spin" /> : <Camera className="h-5 w-5" />}
+                       </Button>
+                    </div>
                   </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
             />
-            <Button type="submit" disabled={isLoading} className="w-full bg-primary hover:bg-primary/90 text-primary-foreground py-7 text-xl rounded-lg shadow-lg transform hover:scale-105 transition-transform duration-300">
+            <Button type="submit" disabled={isLoading || isExtracting} className="w-full bg-primary hover:bg-primary/90 text-primary-foreground py-7 text-xl rounded-lg shadow-lg transform hover:scale-105 transition-transform duration-300">
                 {isLoading ? <Loader2 className="ml-2 h-6 w-6 animate-spin" /> : <Languages className="ml-2 h-6 w-6" />}
                 <span>ترجم النص</span>
             </Button>
