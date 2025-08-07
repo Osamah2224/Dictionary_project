@@ -26,6 +26,8 @@ type FormValues = z.infer<typeof FormSchema>;
 const isArabic = (text: string) => /[\u0600-\u06FF]/.test(text);
 
 const TRANSLATION_CACHE_KEY = 'smartTranslationsCache';
+const AUDIO_CACHE_KEY = 'audioCache';
+
 
 interface SmartTranslationProps {
   initialState?: { query: string; result: { translation: string } } | null;
@@ -42,6 +44,7 @@ export function SmartTranslation({ initialState }: SmartTranslationProps) {
   const { logActivity } = useActivityLog();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const [audioCache, setAudioCache] = useState<Record<string, string>>({});
 
 
   const form = useForm<FormValues>({
@@ -60,9 +63,13 @@ export function SmartTranslation({ initialState }: SmartTranslationProps) {
 
   useEffect(() => {
     try {
-      const cachedData = localStorage.getItem(TRANSLATION_CACHE_KEY);
-      if (cachedData) {
-        setTranslationsCache(JSON.parse(cachedData));
+      const cachedTranslations = localStorage.getItem(TRANSLATION_CACHE_KEY);
+      if (cachedTranslations) {
+        setTranslationsCache(JSON.parse(cachedTranslations));
+      }
+      const cachedAudio = localStorage.getItem(AUDIO_CACHE_KEY);
+       if (cachedAudio) {
+        setAudioCache(JSON.parse(cachedAudio));
       }
     } catch (error) {
       console.error('Failed to load cache:', error);
@@ -75,6 +82,16 @@ export function SmartTranslation({ initialState }: SmartTranslationProps) {
       }
     };
   }, []);
+
+  const saveAudioToCache = (text: string, audioDataUri: string) => {
+    try {
+      const updatedCache = { ...audioCache, [text.toLowerCase()]: audioDataUri };
+      setAudioCache(updatedCache);
+      localStorage.setItem(AUDIO_CACHE_KEY, JSON.stringify(updatedCache));
+    } catch (error) {
+      console.error('Failed to save audio to cache:', error);
+    }
+  };
 
   const saveTranslationToCache = (original: string, translated: string) => {
     try {
@@ -203,8 +220,15 @@ export function SmartTranslation({ initialState }: SmartTranslationProps) {
 
     setIsSpeaking(true);
     try {
+      const cachedAudio = audioCache[translation.toLowerCase()];
+      if (cachedAudio) {
+        playAudio(cachedAudio);
+        return;
+      }
+      
       const response = await textToSpeech({ text: translation });
       if (response.audioDataUri) {
+        saveAudioToCache(translation, response.audioDataUri);
         playAudio(response.audioDataUri);
       } else {
         setIsSpeaking(false);
@@ -214,7 +238,7 @@ export function SmartTranslation({ initialState }: SmartTranslationProps) {
       console.error("TTS Error:", error);
       toast({
         title: "خطأ في النطق",
-        description: "فشل في جلب نطق النص.",
+        description: "فشل في جلب نطق النص. ربما تم تجاوز الحصة اليومية.",
         variant: "destructive",
       });
       setIsSpeaking(false);
@@ -227,11 +251,15 @@ export function SmartTranslation({ initialState }: SmartTranslationProps) {
     }
     const audio = new Audio(audioDataUri);
     audioRef.current = audio;
-    audio.play();
+    audio.play().catch(e => {
+        console.error("Audio play failed:", e);
+        setIsSpeaking(false);
+        toast({ title: "خطأ في تشغيل الصوت", variant: "destructive" });
+    });
     audio.onended = () => setIsSpeaking(false);
     audio.onerror = () => {
         setIsSpeaking(false);
-        toast({ title: "خطأ في تشغيل الصوت", variant: "destructive" });
+        toast({ title: "خطأ في مصدر الصوت", variant: "destructive" });
     }
   }
 

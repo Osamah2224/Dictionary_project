@@ -32,6 +32,8 @@ type FormValues = z.infer<typeof FormSchema>;
 type ResultState = SmartDictionaryOutput | null;
 
 const WORDS_PER_PAGE = 20;
+const AUDIO_CACHE_KEY = 'audioCache';
+
 
 const SmartDictionaryOutputSchema = z.object({
   word: z.string(),
@@ -70,6 +72,7 @@ export function SmartDictionary({ initialState }: SmartDictionaryProps) {
   const { toast } = useToast();
   const { logActivity } = useActivityLog();
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const [audioCache, setAudioCache] = useState<Record<string, string>>({});
   
   const form = useForm<FormValues>({
     resolver: zodResolver(FormSchema),
@@ -77,6 +80,28 @@ export function SmartDictionary({ initialState }: SmartDictionaryProps) {
       query: '',
     },
   });
+
+  useEffect(() => {
+    try {
+        const cachedData = localStorage.getItem(AUDIO_CACHE_KEY);
+        if (cachedData) {
+            setAudioCache(JSON.parse(cachedData));
+        }
+    } catch (error) {
+        console.error('Failed to load audio cache:', error);
+    }
+  }, []);
+
+  const saveAudioToCache = (text: string, audioDataUri: string) => {
+    try {
+      const updatedCache = { ...audioCache, [text.toLowerCase()]: audioDataUri };
+      setAudioCache(updatedCache);
+      localStorage.setItem(AUDIO_CACHE_KEY, JSON.stringify(updatedCache));
+    } catch (error) {
+      console.error('Failed to save audio to cache:', error);
+    }
+  };
+
 
   useEffect(() => {
     if (initialState) {
@@ -89,6 +114,8 @@ export function SmartDictionary({ initialState }: SmartDictionaryProps) {
   const handlePronunciation = async () => {
     if (!result || !result.word) return;
 
+    const wordToSpeak = result.word;
+
     if (isSpeaking && audioRef.current) {
       audioRef.current.pause();
       audioRef.current.currentTime = 0;
@@ -97,9 +124,19 @@ export function SmartDictionary({ initialState }: SmartDictionaryProps) {
     }
     
     setIsSpeaking(true);
+    
     try {
-        const response = await textToSpeech({ text: result.word });
+        // Check cache first
+        const cachedAudio = audioCache[wordToSpeak.toLowerCase()];
+        if (cachedAudio) {
+            playAudio(cachedAudio);
+            return;
+        }
+
+        // If not in cache, fetch from API
+        const response = await textToSpeech({ text: wordToSpeak });
         if (response.audioDataUri) {
+          saveAudioToCache(wordToSpeak, response.audioDataUri);
           playAudio(response.audioDataUri);
         } else {
             setIsSpeaking(false);
@@ -109,7 +146,7 @@ export function SmartDictionary({ initialState }: SmartDictionaryProps) {
       console.error("TTS Error:", error);
       toast({
         title: "خطأ في النطق",
-        description: "فشل في جلب نطق الكلمة.",
+        description: "فشل في جلب نطق الكلمة. ربما تم تجاوز الحصة اليومية.",
         variant: "destructive",
       });
       setIsSpeaking(false);
@@ -122,11 +159,15 @@ export function SmartDictionary({ initialState }: SmartDictionaryProps) {
     }
     const audio = new Audio(audioDataUri);
     audioRef.current = audio;
-    audio.play();
+    audio.play().catch(e => {
+        console.error("Audio play failed:", e);
+        setIsSpeaking(false);
+        toast({ title: "خطأ في تشغيل الصوت", variant: "destructive" });
+    });
     audio.onended = () => setIsSpeaking(false);
     audio.onerror = () => {
         setIsSpeaking(false);
-        toast({ title: "خطأ في تشغيل الصوت", variant: "destructive" });
+        toast({ title: "خطأ في مصدر الصوت", variant: "destructive" });
     }
   }
 
@@ -396,7 +437,7 @@ export function SmartDictionary({ initialState }: SmartDictionaryProps) {
                 variant="ghost"
                 size="icon"
                 onClick={handlePronunciation}
-                disabled={isLoading || isSpeaking}
+                disabled={isLoading}
                 className="absolute top-1/2 -translate-y-1/2 right-4 text-primary hover:bg-primary/10 rounded-full h-14 w-14"
                 title="نطق الكلمة"
               >
