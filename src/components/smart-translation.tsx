@@ -26,7 +26,6 @@ type FormValues = z.infer<typeof FormSchema>;
 const isArabic = (text: string) => /[\u0600-\u06FF]/.test(text);
 
 const TRANSLATION_CACHE_KEY = 'smartTranslationsCache';
-const AUDIO_CACHE_KEY = 'translationAudioCache';
 
 interface SmartTranslationProps {
   initialState?: { query: string; result: { translation: string } } | null;
@@ -40,7 +39,6 @@ export function SmartTranslation({ initialState }: SmartTranslationProps) {
   const [isSpeaking, setIsSpeaking] = useState(false);
   const { toast } = useToast();
   const [translationsCache, setTranslationsCache] = useState<Record<string, string>>({});
-  const [audioCache, setAudioCache] = useState<Record<string, string>>({});
   const { logActivity } = useActivityLog();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -66,10 +64,6 @@ export function SmartTranslation({ initialState }: SmartTranslationProps) {
       if (cachedData) {
         setTranslationsCache(JSON.parse(cachedData));
       }
-      const cachedAudio = localStorage.getItem(AUDIO_CACHE_KEY);
-      if (cachedAudio) {
-        setAudioCache(JSON.parse(cachedAudio));
-      }
     } catch (error) {
       console.error('Failed to load cache:', error);
     }
@@ -93,17 +87,6 @@ export function SmartTranslation({ initialState }: SmartTranslationProps) {
     }
   };
   
-  const saveAudioToCache = (text: string, audioDataUri: string) => {
-    try {
-      const updatedCache = { ...audioCache, [text.toLowerCase()]: audioDataUri };
-      setAudioCache(updatedCache);
-      localStorage.setItem(AUDIO_CACHE_KEY, JSON.stringify(updatedCache));
-    } catch (error) {
-      console.error('Failed to save audio to cache:', error);
-    }
-  };
-
-
   const onSubmit: SubmitHandler<FormValues> = async (data) => {
     setIsLoading(true);
     setTranslation(null);
@@ -220,18 +203,12 @@ export function SmartTranslation({ initialState }: SmartTranslationProps) {
 
     setIsSpeaking(true);
     try {
-      const cachedAudio = audioCache[translation.toLowerCase()];
-      if (cachedAudio) {
-        playAudio(cachedAudio);
-        return;
-      }
-      
       const response = await textToSpeech({ text: translation });
       if (response.audioDataUri) {
-        saveAudioToCache(translation, response.audioDataUri);
         playAudio(response.audioDataUri);
       } else {
         setIsSpeaking(false);
+        throw new Error("No audio data received.");
       }
     } catch (error) {
       console.error("TTS Error:", error);
@@ -341,7 +318,7 @@ export function SmartTranslation({ initialState }: SmartTranslationProps) {
              <div className="flex justify-between items-center mb-4">
                 <h3 className="text-2xl font-bold text-primary">النص المترجم:</h3>
                 <div className="flex items-center gap-1">
-                    <Button variant="ghost" size="icon" onClick={handlePronunciation} className="text-muted-foreground hover:bg-primary/10">
+                    <Button variant="ghost" size="icon" onClick={handlePronunciation} disabled={isSpeaking} className="text-muted-foreground hover:bg-primary/10">
                         {isSpeaking ? <Pause className="h-5 w-5" /> : <Volume2 className="h-5 w-5" />}
                     </Button>
                     <Button variant="ghost" size="icon" onClick={handleCopy} className="text-muted-foreground hover:bg-primary/10">
