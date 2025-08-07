@@ -36,7 +36,7 @@ export default function Home({
         </header>
         <main>
           <Tabs value={activeTab} onValueChange={setActiveTab} defaultValue="smart-dictionary" className="w-full">
-            <TabsList className="flex flex-wrap justify-center w-full bg-transparent p-0 gap-6 mb-8">
+            <TabsList className="grid w-full grid-cols-2 md:grid-cols-4 bg-transparent p-0 gap-4 mb-8">
               <TabsTrigger value="smart-dictionary" className="text-lg md:text-xl py-3 px-6 rounded-lg shadow-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-2xl transition-all duration-300 transform hover:-translate-y-1">
                 <BookMarked className="ml-2 h-5 w-5" />
                 القاموس الذكي
