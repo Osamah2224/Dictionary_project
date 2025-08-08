@@ -3,5 +3,6 @@
         "origin",
         "upstream",
         "https://github.com/Osamah2224/-.-.git"
-    ]
+    ],
+    "explorer.excludeGitIgnore": true
 }
