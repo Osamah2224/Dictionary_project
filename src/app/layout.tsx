@@ -4,6 +4,7 @@ import { Toaster } from '@/components/ui/toaster';
 import { ActivityLog } from '@/components/activity-log';
 import { ActivityLogWrapper } from '@/hooks/use-activity-log';
 import { InfoHub } from '@/components/info-hub';
+import { ExportHub } from '@/components/export-hub';
 
 export const metadata: Metadata = {
   title: 'أ. أسامة العُمري',
@@ -30,6 +31,7 @@ export default function RootLayout({
         <ActivityLogWrapper>
           {children}
           <InfoHub />
+          <ExportHub />
           <ActivityLog />
         </ActivityLogWrapper>
         <Toaster />
