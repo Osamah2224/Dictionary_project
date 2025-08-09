@@ -14,10 +14,10 @@ import { Form, FormControl, FormField, FormItem, FormMessage } from '@/component
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useToast } from '@/hooks/use-toast';
-import { Separator } from './ui/separator';
-import { Pagination } from './pagination';
+import { Separator } from '@/components/ui/separator';
+import { Pagination } from '@/components/pagination';
 import { useActivityLog } from '@/hooks/use-activity-log';
-import { ScrollArea } from './ui/scroll-area';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 const FormSchema = z.object({
   query: z.string().min(1, 'الرجاء إدخال كلمة أو عبارة.'),
