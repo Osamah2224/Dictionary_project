@@ -107,21 +107,6 @@ export function SmartDictionary({ initialState }: SmartDictionaryProps) {
     }
   }, [initialState, form]);
 
-  useEffect(() => {
-    const handleVoicesChanged = () => {
-        // This is to ensure voices are loaded in all browsers.
-        window.speechSynthesis.getVoices();
-    };
-    window.speechSynthesis.onvoiceschanged = handleVoicesChanged;
-    handleVoicesChanged(); // initial call
-    return () => {
-        window.speechSynthesis.onvoiceschanged = null;
-        if (window.speechSynthesis?.speaking) {
-            window.speechSynthesis.cancel();
-        }
-    };
-}, []);
-
   const handlePronunciation = (text: string, lang: string) => {
     if (!text || typeof window === 'undefined' || !window.speechSynthesis) return;
 
@@ -140,7 +125,8 @@ export function SmartDictionary({ initialState }: SmartDictionaryProps) {
     }
     
     utterance.onerror = (event) => {
-        console.error("SpeechSynthesis Error:", event.error);
+        if ((event as SpeechSynthesisErrorEvent).error === 'synthesis-canceled') return;
+        console.error("SpeechSynthesis Error:", event);
         toast({ title: "خطأ في النطق", variant: "destructive" });
     };
 
@@ -471,3 +457,4 @@ export function SmartDictionary({ initialState }: SmartDictionaryProps) {
   </>
   );
 }
+    

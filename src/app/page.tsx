@@ -1,27 +1,23 @@
+'use client';
+
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { SmartDictionary } from '@/components/smart-dictionary';
 import { SmartTranslation } from '@/components/smart-translation';
 import { SmartTeacher } from '@/components/smart-teacher';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { Languages, GraduationCap, BookMarked } from 'lucide-react';
-import Link from 'next/link';
-
-interface HomeProps {
-  activeTab?: string;
-  setActiveTab?: (tab: string) => void;
-  initialDictionaryState?: any;
-  initialTranslationState?: any;
-  initialTeacherState?: any;
-}
+import { useActivityRestoration } from '@/hooks/use-activity-log';
 
 
-export default function Home({ 
-  activeTab, 
-  setActiveTab,
-  initialDictionaryState,
-  initialTranslationState,
-  initialTeacherState,
-}: HomeProps) {
+export default function Home() {
+  const { 
+    activeTab, 
+    setActiveTab, 
+    dictionaryState, 
+    translationState, 
+    teacherState 
+  } = useActivityRestoration();
+
   return (
     <div className="flex flex-col items-center min-h-screen bg-background text-foreground p-4 md:p-8 font-body">
       <div className="w-full max-w-6xl mx-auto">
@@ -48,13 +44,13 @@ export default function Home({
               </TabsTrigger>
             </TabsList>
             <TabsContent value="smart-dictionary" className="mt-8">
-              <SmartDictionary initialState={initialDictionaryState} />
+              <SmartDictionary initialState={dictionaryState} />
             </TabsContent>
             <TabsContent value="smart-translation" className="mt-8">
-              <SmartTranslation initialState={initialTranslationState} />
+              <SmartTranslation initialState={translationState} />
             </TabsContent>
             <TabsContent value="smart-teacher" className="mt-8">
-              <SmartTeacher initialState={initialTeacherState} />
+              <SmartTeacher initialState={teacherState} />
             </TabsContent>
           </Tabs>
         </main>

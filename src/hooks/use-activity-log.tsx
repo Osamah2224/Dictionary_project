@@ -30,7 +30,27 @@ interface ActivityLogContextType {
 
 const ActivityLogContext = createContext<ActivityLogContextType | undefined>(undefined);
 
-export const ActivityLogProvider: React.FC<{ children: React.ReactNode, onActivitySelect: (activity: ActivityLogItem) => void }> = ({ children, onActivitySelect }) => {
+
+// A new context to pass the click handler down
+interface ActivityRestorationContextType {
+    activeTab: string;
+    setActiveTab: (tab: string) => void;
+    dictionaryState: { query: string; result: SmartDictionaryOutput } | null;
+    translationState: { query: string; result: { translation: string } } | null;
+    teacherState: { query: string; result: SmartTeacherOutput } | null;
+    handleActivitySelect: (activity: ActivityLogItem) => void;
+}
+const ActivityRestorationContext = createContext<ActivityRestorationContextType | undefined>(undefined);
+
+export const useActivityRestoration = () => {
+    const context = useContext(ActivityRestorationContext);
+    if (context === undefined) {
+        throw new Error('useActivityRestoration must be used within an ActivityLogWrapper');
+    }
+    return context;
+};
+
+export const ActivityLogProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [activities, setActivities] = useState<ActivityLogItem[]>([]);
   const { toast } = useToast();
 
@@ -65,8 +85,6 @@ export const ActivityLogProvider: React.FC<{ children: React.ReactNode, onActivi
       timestamp: new Date().toISOString(),
     };
     
-    // Prevent duplicate consecutive entries by checking the last activity's query and tool
-    // For the teacher tool, we check the content, not just the title.
     const lastActivity = activities[0];
     const isSameQuery = lastActivity?.query === newActivity.query;
     const isSameTool = lastActivity?.tool === newActivity.tool;
@@ -110,35 +128,20 @@ export const ActivityLogProvider: React.FC<{ children: React.ReactNode, onActivi
   );
 };
 
-// A new context to pass the click handler down
-type ActivitySelectContextType = (activity: ActivityLogItem) => void;
-const ActivitySelectContext = createContext<ActivitySelectContextType | undefined>(undefined);
-
-export const useActivitySelect = () => {
-    const context = useContext(ActivitySelectContext);
-    if (context === undefined) {
-        throw new Error('useActivitySelect must be used within an ActivityLogProvider');
-    }
-    return context;
-};
-
 
 export const ActivityLogWrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [selectedActivity, setSelectedActivity] = useState<ActivityLogItem | null>(null);
-  
-  // This state will hold the data to be passed to the specific tool component
+  const [activeTab, setActiveTab] = useState('smart-dictionary');
   const [dictionaryState, setDictionaryState] = useState<{ query: string; result: SmartDictionaryOutput } | null>(null);
   const [translationState, setTranslationState] = useState<{ query: string; result: { translation: string } } | null>(null);
   const [teacherState, setTeacherState] = useState<{ query: string; result: SmartTeacherOutput } | null>(null);
-  const [activeTab, setActiveTab] = useState('smart-dictionary');
 
   const handleActivitySelect = (activity: ActivityLogItem) => {
-      setSelectedActivity(activity);
-      // Reset all states
+      // Reset all tool-specific states first to ensure a clean slate
       setDictionaryState(null);
       setTranslationState(null);
       setTeacherState(null);
 
+      // Set the state for the selected tool and switch to its tab
       switch(activity.tool) {
         case 'القاموس الذكي':
           setDictionaryState({ query: activity.query, result: activity.payload as SmartDictionaryOutput });
@@ -149,31 +152,27 @@ export const ActivityLogWrapper: React.FC<{ children: React.ReactNode }> = ({ ch
           setActiveTab('smart-translation');
           break;
         case 'المعلم الذكي':
-          // The original lesson content is now stored in the payload.query
           const payload = activity.payload as (SmartTeacherOutput & { query?: string });
           setTeacherState({ query: payload.query || '', result: payload });
           setActiveTab('smart-teacher');
           break;
       }
   };
+  
+  const contextValue = {
+      activeTab,
+      setActiveTab,
+      dictionaryState,
+      translationState,
+      teacherState,
+      handleActivitySelect,
+  };
 
   return (
-    <ActivityLogProvider onActivitySelect={handleActivitySelect}>
-        <ActivitySelectContext.Provider value={handleActivitySelect}>
-             {React.Children.map(children, child => {
-                if (React.isValidElement(child)) {
-                    // This is how we pass the state down to the children components
-                    return React.cloneElement(child, {
-                        initialDictionaryState: dictionaryState,
-                        initialTranslationState: translationState,
-                        initialTeacherState: teacherState,
-                        activeTab,
-                        setActiveTab
-                    } as any);
-                }
-                return child;
-            })}
-        </ActivitySelectContext.Provider>
+    <ActivityLogProvider>
+        <ActivityRestorationContext.Provider value={contextValue}>
+            {children}
+        </ActivityRestorationContext.Provider>
     </ActivityLogProvider>
   );
 }
@@ -186,3 +185,4 @@ export const useActivityLog = (): ActivityLogContextType => {
   }
   return context;
 };
+    

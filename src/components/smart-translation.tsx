@@ -63,18 +63,6 @@ export function SmartTranslation({ initialState }: SmartTranslationProps) {
     } catch (error) {
       console.error('Failed to load cache:', error);
     }
-    
-    const handleVoicesChanged = () => {
-        window.speechSynthesis.getVoices();
-    };
-    window.speechSynthesis.onvoiceschanged = handleVoicesChanged;
-    handleVoicesChanged();
-    return () => {
-        window.speechSynthesis.onvoiceschanged = null;
-        if (window.speechSynthesis?.speaking) {
-            window.speechSynthesis.cancel();
-        }
-    };
 }, []);
 
 
@@ -189,10 +177,7 @@ export function SmartTranslation({ initialState }: SmartTranslationProps) {
   };
 
  const handlePronunciation = (text: string) => {
-    if (!text || typeof window === 'undefined') return;
-
-    const { speechSynthesis } = window;
-    if (!speechSynthesis) {
+    if (!text || typeof window === 'undefined' || !window.speechSynthesis) {
         toast({
             title: "ميزة الصوت غير مدعومة",
             description: "متصفحك لا يدعم ميزة نطق النصوص.",
@@ -201,24 +186,26 @@ export function SmartTranslation({ initialState }: SmartTranslationProps) {
         return;
     }
     
-    if (speechSynthesis.speaking) {
-        speechSynthesis.cancel();
+    if (window.speechSynthesis.speaking) {
+        window.speechSynthesis.cancel();
     }
 
     const utterance = new SpeechSynthesisUtterance(text);
     const targetLang = isArabic(text) ? 'ar' : 'en';
-
-    const voices = speechSynthesis.getVoices();
+    const voices = window.speechSynthesis.getVoices();
     const voice = voices.find(v => v.lang.startsWith(targetLang));
+    
     if (voice) {
         utterance.voice = voice;
-    }
-     else {
+    } else {
         console.warn(`No voice found for lang: ${targetLang}`);
     }
     
     utterance.onerror = (event) => {
-        console.error("SpeechSynthesis Error:", event.error);
+        if ((event as SpeechSynthesisErrorEvent).error === 'synthesis-canceled') {
+            return;
+        }
+        console.error("SpeechSynthesis Error:", event);
         toast({
             title: "خطأ في النطق",
             description: "حدث خطأ أثناء محاولة نطق النص.",
@@ -226,7 +213,7 @@ export function SmartTranslation({ initialState }: SmartTranslationProps) {
         });
     };
 
-    speechSynthesis.speak(utterance);
+    window.speechSynthesis.speak(utterance);
   };
 
   const handleCopy = () => {
@@ -329,3 +316,5 @@ export function SmartTranslation({ initialState }: SmartTranslationProps) {
     </Card>
   );
 }
+
+    

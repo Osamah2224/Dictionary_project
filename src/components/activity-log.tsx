@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { useActivityLog, useActivitySelect } from '@/hooks/use-activity-log';
+import { useActivityLog, useActivityRestoration } from '@/hooks/use-activity-log';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger, SheetFooter, SheetDescription, SheetClose } from '@/components/ui/sheet';
 import { History, Trash2, BookMarked, Languages, GraduationCap, X } from 'lucide-react';
@@ -18,7 +18,7 @@ const TOOL_ICONS = {
 
 export function ActivityLog() {
   const { activities, clearActivities, removeActivity } = useActivityLog();
-  const onActivitySelect = useActivitySelect();
+  const { handleActivitySelect } = useActivityRestoration();
 
   const handleClear = () => {
     if (window.confirm('هل أنت متأكد من رغبتك في مسح كل سجل النشاطات؟ لا يمكن التراجع عن هذا الإجراء.')) {
@@ -54,7 +54,7 @@ export function ActivityLog() {
                 <SheetClose asChild key={activity.id}>
                 <Card 
                     className="relative group cursor-pointer hover:bg-muted/50 transition-colors"
-                    onClick={() => onActivitySelect(activity)}
+                    onClick={() => handleActivitySelect(activity)}
                 >
                   <CardHeader className="flex flex-row items-center justify-between pb-2">
                      <CardTitle className="text-lg flex items-center gap-3">
@@ -103,3 +103,5 @@ export function ActivityLog() {
     </Sheet>
   );
 }
+
+    
