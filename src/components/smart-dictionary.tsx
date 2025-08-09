@@ -1,25 +1,21 @@
 'use client';
 
 import * as React from 'react';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { useForm, type SubmitHandler } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { BookMarked, Loader2, Database, Search, Type, List, Repeat, ChevronsUpDown, Cog, Play, Pause, Square, ListChecks, Volume2, X } from 'lucide-react';
+import { BookMarked, Loader2, Search, Type, List, Repeat, ChevronsUpDown, ListChecks, Volume2, X } from 'lucide-react';
 
 import { smartDictionary, type SmartDictionaryOutput } from '@/ai/flows/smart-dictionary';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Form, FormControl, FormField, FormItem, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useToast } from '@/hooks/use-toast';
-import Link from 'next/link';
 import { Separator } from './ui/separator';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogDescription } from '@/components/ui/dialog';
-import { Progress } from '@/components/ui/progress';
 import { Pagination } from './pagination';
-import type { ProcessorWorkerMessage, WordProcessorResult } from '@/workers/word-processor.worker';
 import { useActivityLog } from '@/hooks/use-activity-log';
 import { ScrollArea } from './ui/scroll-area';
 
@@ -33,6 +29,7 @@ type ResultState = SmartDictionaryOutput | null;
 
 const WORDS_PER_PAGE = 10;
 
+// This schema is used to validate data loaded from localStorage.
 const SmartDictionaryOutputSchema = z.object({
   word: z.string(),
   arabicMeaning: z.string(),
@@ -58,6 +55,7 @@ const SmartDictionaryOutputSchema = z.object({
   })),
 });
 
+
 interface SmartDictionaryProps {
   initialState?: { query: string; result: SmartDictionaryOutput } | null;
 }
@@ -66,6 +64,8 @@ interface SmartDictionaryProps {
 export function SmartDictionary({ initialState }: SmartDictionaryProps) {
   const [result, setResult] = useState<ResultState>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [localDictionary, setLocalDictionary] = useState<SmartDictionaryOutput[]>([]);
+  const [currentPage, setCurrentPage] = useState(1);
   const { toast } = useToast();
   const { logActivity } = useActivityLog();
   
@@ -75,6 +75,30 @@ export function SmartDictionary({ initialState }: SmartDictionaryProps) {
       query: '',
     },
   });
+
+  const loadLocalDictionary = () => {
+    try {
+      const storedData = localStorage.getItem('processedWordsDictionary');
+      if (storedData) {
+        const dictionary = JSON.parse(storedData);
+        // Validate each entry and filter out invalid ones
+        const validWords = Object.values(dictionary).filter(entry => {
+          const parsed = SmartDictionaryOutputSchema.safeParse(entry);
+          return parsed.success;
+        }) as SmartDictionaryOutput[];
+        setLocalDictionary(validWords.sort((a,b) => a.word.localeCompare(b.word)));
+      }
+    } catch (error) {
+      console.error("Failed to load or parse local dictionary:", error);
+      toast({title: "فشل تحميل القاموس المحلي", variant: "destructive"});
+    }
+  };
+
+  // Load the local dictionary on initial component mount.
+  useEffect(() => {
+    loadLocalDictionary();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     if (initialState) {
@@ -99,24 +123,14 @@ export function SmartDictionary({ initialState }: SmartDictionaryProps) {
 }, []);
 
   const handlePronunciation = (text: string, lang: string) => {
-    if (!text || typeof window === 'undefined') return;
+    if (!text || typeof window === 'undefined' || !window.speechSynthesis) return;
 
-    const { speechSynthesis } = window;
-    if (!speechSynthesis) {
-        toast({
-            title: "ميزة الصوت غير مدعومة",
-            description: "متصفحك لا يدعم ميزة نطق النصوص.",
-            variant: "destructive",
-        });
-        return;
-    }
-
-    if (speechSynthesis.speaking) {
-        speechSynthesis.cancel();
+    if (window.speechSynthesis.speaking) {
+        window.speechSynthesis.cancel();
     }
     
     const utterance = new SpeechSynthesisUtterance(text);
-    const voices = speechSynthesis.getVoices();
+    const voices = window.speechSynthesis.getVoices();
     const voice = voices.find(v => v.lang.startsWith(lang));
     
     if (voice) {
@@ -127,42 +141,38 @@ export function SmartDictionary({ initialState }: SmartDictionaryProps) {
     
     utterance.onerror = (event) => {
         console.error("SpeechSynthesis Error:", event.error);
-        toast({
-            title: "خطأ في النطق",
-            description: "حدث خطأ أثناء محاولة نطق الكلمة.",
-            variant: "destructive",
-        });
+        toast({ title: "خطأ في النطق", variant: "destructive" });
     };
 
-    speechSynthesis.speak(utterance);
+    window.speechSynthesis.speak(utterance);
   };
-
-  // Word Processor State
-  const [isProcessorOpen, setIsProcessorOpen] = useState(false);
-  const [processingStatus, setProcessingStatus] = useState<'idle' | 'running' | 'paused' | 'stopped'>('idle');
-  const [progress, setProgress] = useState(0);
-  const [processedCount, setProcessedCount] = useState(0);
-  const [totalWordsToProcess, setTotalWordsToProcess] = useState(0);
-  const [processedWords, setProcessedWords] = useState<WordProcessorResult[]>([]);
-  const [currentPage, setCurrentPage] = useState(1);
-  const workerRef = useRef<Worker>();
-
-  const loadProcessedWords = () => {
+  
+  const saveWordToLocalDictionary = (wordData: SmartDictionaryOutput) => {
     try {
-      const storedData = localStorage.getItem('processedWordsDictionary');
-      if (storedData) {
-        const dictionary = JSON.parse(storedData);
-        const wordsArray = Object.values(dictionary).map(word => SmartDictionaryOutputSchema.parse(word)) as WordProcessorResult[];
-        setProcessedWords(wordsArray.sort((a,b) => a.word.localeCompare(b.word)));
+      const validatedData = SmartDictionaryOutputSchema.parse(wordData);
+      const currentData = localStorage.getItem('processedWordsDictionary');
+      const currentDictionary = currentData ? JSON.parse(currentData) : {};
+      const wordKey = validatedData.word.toLowerCase();
+      
+      // Save to localStorage only if it's a new word
+      if (!currentDictionary[wordKey]) {
+        currentDictionary[wordKey] = validatedData;
+        localStorage.setItem('processedWordsDictionary', JSON.stringify(currentDictionary));
       }
-    } catch (error) {
-      console.error("Failed to load or parse processed words:", error);
-      // localStorage.removeItem('processedWordsDictionary');
+      
+      // Update state to reflect the change immediately
+      setLocalDictionary(prev => 
+        [...prev.filter(p => p.word.toLowerCase() !== wordKey), validatedData]
+        .sort((a,b) => a.word.localeCompare(b.word))
+      );
+    } catch (e) {
+      console.error("Failed to save to local storage", e);
+      toast({ title: "فشل حفظ النتيجة محلياً", variant: "destructive" });
     }
   };
 
-  const removeProcessedWord = (e: React.MouseEvent, wordToRemove: string) => {
-    e.stopPropagation(); // Prevent the row's onClick from firing.
+  const removeWordFromLocalDictionary = (e: React.MouseEvent, wordToRemove: string) => {
+    e.stopPropagation();
     if (!window.confirm(`هل أنت متأكد من رغبتك في حذف كلمة "${wordToRemove}" من القاموس المحلي؟`)) {
       return;
     }
@@ -172,97 +182,39 @@ export function SmartDictionary({ initialState }: SmartDictionaryProps) {
         const dictionary = JSON.parse(storedData);
         delete dictionary[wordToRemove.toLowerCase()];
         localStorage.setItem('processedWordsDictionary', JSON.stringify(dictionary));
-        loadProcessedWords(); // Refresh the list
+        loadLocalDictionary(); // Refresh the list from storage
         toast({title: `تم حذف "${wordToRemove}"`});
       }
     } catch (error) {
-      console.error("Failed to remove processed word:", error);
+      console.error("Failed to remove word:", error);
       toast({title: "فشل حذف الكلمة", variant: "destructive"});
     }
   };
-  
-  const saveWordToDictionary = (wordData: WordProcessorResult) => {
-    try {
-      const validatedData = SmartDictionaryOutputSchema.parse(wordData);
-      const currentData = localStorage.getItem('processedWordsDictionary');
-      const currentDictionary = currentData ? JSON.parse(currentData) : {};
-      currentDictionary[validatedData.word.toLowerCase()] = validatedData;
-      localStorage.setItem('processedWordsDictionary', JSON.stringify(currentDictionary));
-      
-      setProcessedWords(prev => 
-        [...prev.filter(p => p.word.toLowerCase() !== validatedData.word.toLowerCase()), validatedData]
-        .sort((a,b) => a.word.localeCompare(b.word))
-      );
-    } catch (e) {
-      console.error("Failed to save to local storage", e);
-      toast({ title: "فشل حفظ النتيجة محلياً", variant: "destructive" });
-    }
-  };
-
-
-  useEffect(() => {
-    loadProcessedWords();
-    
-    workerRef.current = new Worker(new URL('../workers/word-processor.worker.ts', import.meta.url));
-    
-    workerRef.current.onmessage = (event: MessageEvent<ProcessorWorkerMessage>) => {
-      const { type, payload } = event.data;
-      if (type === 'PROGRESS') {
-        setTotalWordsToProcess(payload.total);
-        setProcessedCount(payload.processed);
-        setProgress(payload.progress);
-      } else if (type === 'DONE') {
-        setProcessingStatus('idle');
-        toast({ title: 'اكتملت المعالجة بنجاح!' });
-        loadProcessedWords(); 
-      } else if (type === 'STOPPED') {
-        setProcessingStatus('stopped');
-        toast({ title: 'تم إيقاف المعالجة.', variant: 'default' });
-        loadProcessedWords();
-      } else if(type === 'WORD_PROCESSED'){
-        saveWordToDictionary(payload);
-      }
-    };
-    
-    return () => {
-      workerRef.current?.terminate();
-    };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-  
 
   const onSubmit: SubmitHandler<FormValues> = async (data) => {
     setIsLoading(true);
     setResult(null);
     const query = data.query.trim();
-    if (!query) {
-        setIsLoading(false);
-        return;
-    }
     const lowerCaseQuery = query.toLowerCase();
 
+    // Check local dictionary first
+    const foundEntry = localDictionary.find(
+      entry => entry.word.toLowerCase() === lowerCaseQuery || entry.arabicMeaning.toLowerCase() === lowerCaseQuery
+    );
+
+    if (foundEntry) {
+      setResult(foundEntry);
+      logActivity({ tool: 'القاموس الذكي', query: query, payload: { ...foundEntry } });
+      toast({ title: "تم العثور على الكلمة في القاموس المحلي" });
+      setIsLoading(false);
+      return;
+    }
+
     try {
-      const storedData = localStorage.getItem('processedWordsDictionary');
-      if (storedData) {
-        const dictionary: Record<string, WordProcessorResult> = JSON.parse(storedData);
-        const foundEntry = Object.values(dictionary).find(
-            entry => entry.word.toLowerCase() === lowerCaseQuery || entry.arabicMeaning.toLowerCase() === lowerCaseQuery
-        );
-
-        if (foundEntry) {
-          setResult(foundEntry);
-          logActivity({ tool: 'القاموس الذكي', query: query, payload: { ...foundEntry } });
-          toast({ title: "تم العثور على الكلمة في القاموس المحلي" });
-          setIsLoading(false);
-          return;
-        }
-      }
-
       const aiResult = await smartDictionary({ query: query });
       setResult(aiResult);
       logActivity({ tool: 'القاموس الذكي', query: query, payload: { ...aiResult } });
-      saveWordToDictionary(aiResult);
-
+      saveWordToLocalDictionary(aiResult);
     } catch (error) {
       console.error('Smart Dictionary Error:', error);
       toast({
@@ -274,31 +226,15 @@ export function SmartDictionary({ initialState }: SmartDictionaryProps) {
       setIsLoading(false);
     }
   };
-
-  const handleProcessorControl = () => {
-    if (processingStatus === 'running') {
-      workerRef.current?.postMessage({ command: 'pause' });
-      setProcessingStatus('paused');
-    } else { 
-      const wordsToProcess = JSON.parse(localStorage.getItem('englishWords') || '[]');
-      const processedDictionary = JSON.parse(localStorage.getItem('processedWordsDictionary') || '{}');
-      workerRef.current?.postMessage({ command: 'start', wordsToProcess, processedDictionary });
-      setProcessingStatus('running');
-    }
-  };
-
-  const stopProcessing = () => {
-    workerRef.current?.postMessage({ command: 'stop' });
-  };
   
-  const handleWordClick = (wordData: WordProcessorResult) => {
+  const handleWordClick = (wordData: SmartDictionaryOutput) => {
     form.setValue('query', wordData.word);
     setResult(wordData);
     logActivity({ tool: 'القاموس الذكي', query: wordData.word, payload: { ...wordData } });
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const paginatedProcessedWords = processedWords.slice(
+  const paginatedLocalDictionary = localDictionary.slice(
     (currentPage - 1) * WORDS_PER_PAGE,
     currentPage * WORDS_PER_PAGE
   );
@@ -310,7 +246,6 @@ export function SmartDictionary({ initialState }: SmartDictionaryProps) {
     </CardTitle>
   );
 
-
   return (
     <>
     <Card className="w-full">
@@ -320,51 +255,6 @@ export function SmartDictionary({ initialState }: SmartDictionaryProps) {
             <BookMarked className="h-8 w-8" />
             <span>القاموس الذكي</span>
           </CardTitle>
-          <div className='flex items-center gap-2'>
-             <Dialog open={isProcessorOpen} onOpenChange={setIsProcessorOpen}>
-              <DialogTrigger asChild>
-                <Button variant="ghost" size="icon" className="group text-primary hover:bg-primary/10" title="معالج الكلمات">
-                  <Cog className="h-6 w-6" />
-                </Button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle className='flex items-center gap-2'>
-                    <Cog /> معالج الكلمات الآلي
-                  </DialogTitle>
-                  <DialogDescription>
-                    يقوم هذا المعالج بجلب تفاصيل الكلمات المحفوظة من مستخرج SQL وتخزينها في القاموس المحلي للاستخدام دون الحاجة للإنترنت.
-                  </DialogDescription>
-                </DialogHeader>
-                <div className='space-y-4 py-4'>
-                   <div className='text-center'>
-                    <span className='font-bold text-lg text-primary'>{processedCount}</span>
-                    <span className='text-muted-foreground'> / {totalWordsToProcess} كلمة تمت معالجتها</span>
-                  </div>
-                  <Progress value={progress} />
-                   <p className='text-sm text-center text-muted-foreground'>
-                    {processingStatus === 'running' && 'جاري المعالجة...'}
-                    {processingStatus === 'paused' && 'متوقف مؤقتاً.'}
-                    {processingStatus === 'stopped' && 'تم الإيقاف.'}
-                    {processingStatus === 'idle' && 'في وضع الاستعداد.'}
-                  </p>
-                </div>
-                <DialogFooter className='gap-2'>
-                  <Button onClick={stopProcessing} variant="destructive" disabled={processingStatus !== 'running' && processingStatus !== 'paused'}>
-                    <Square className="ml-2 h-4 w-4" /> إيقاف نهائي
-                  </Button>
-                  <Button onClick={handleProcessorControl} disabled={totalWordsToProcess > 0 && processedCount === totalWordsToProcess} className='w-32'>
-                    {processingStatus === 'running' ? <><Pause className="ml-2 h-4 w-4" /> إيقاف مؤقت</> : <><Play className="ml-2 h-4 w-4" /> بدء/استئناف</>}
-                  </Button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
-            <Button asChild variant="ghost" size="icon" className="group text-primary hover:bg-primary/10" title="مستخرج الكلمات من ملف SQL">
-               <Link href="/sql-extractor">
-                  <Database className="h-6 w-6" />
-               </Link>
-            </Button>
-          </div>
         </div>
       </CardHeader>
       <CardContent className="p-6">
@@ -530,11 +420,11 @@ export function SmartDictionary({ initialState }: SmartDictionaryProps) {
       <CardHeader>
         <CardTitle className="flex items-center gap-3 text-2xl font-bold text-primary">
           <ListChecks className="h-8 w-8" />
-          <span>الكلمات المعالجة في القاموس المحلي ({processedWords.length})</span>
+          <span>الكلمات المحفوظة في القاموس المحلي ({localDictionary.length})</span>
         </CardTitle>
       </CardHeader>
       <CardContent>
-         {processedWords.length > 0 ? (
+         {localDictionary.length > 0 ? (
           <>
             <ScrollArea className="h-96 w-full">
               <Table>
@@ -546,7 +436,7 @@ export function SmartDictionary({ initialState }: SmartDictionaryProps) {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {paginatedProcessedWords.map((wordData) => (
+                  {paginatedLocalDictionary.map((wordData) => (
                     <TableRow key={wordData.word} className="group cursor-pointer hover:bg-muted/50" onClick={() => handleWordClick(wordData)}>
                       <TableCell className="font-semibold">{wordData.word}</TableCell>
                       <TableCell className="text-muted-foreground">{wordData.arabicMeaning}</TableCell>
@@ -555,7 +445,7 @@ export function SmartDictionary({ initialState }: SmartDictionaryProps) {
                           variant="ghost" 
                           size="icon" 
                           className="h-8 w-8 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
-                          onClick={(e) => removeProcessedWord(e, wordData.word)}
+                          onClick={(e) => removeWordFromLocalDictionary(e, wordData.word)}
                         >
                           <X className="h-4 w-4" />
                         </Button>
@@ -567,13 +457,13 @@ export function SmartDictionary({ initialState }: SmartDictionaryProps) {
             </ScrollArea>
             <Pagination
               currentPage={currentPage}
-              totalPages={Math.ceil(processedWords.length / WORDS_PER_PAGE)}
+              totalPages={Math.ceil(localDictionary.length / WORDS_PER_PAGE)}
               onPageChange={setCurrentPage}
             />
           </>
         ) : (
           <p className="text-muted-foreground text-center py-8">
-            لا توجد كلمات معالجة حتى الآن. استخدم "معالج الكلمات" لبدء العملية.
+            قاموسك المحلي فارغ. ابدأ بالبحث عن كلمات وستُحفظ هنا تلقائياً.
           </p>
         )}
       </CardContent>
