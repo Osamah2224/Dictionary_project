@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { useActivityLog, type ActivityLogItem } from '@/hooks/use-activity-log';
@@ -22,7 +22,7 @@ const PrintableDictionaryLog = ({ activities }: { activities: ActivityLogItem[] 
     .filter(a => a.tool === 'القاموس الذكي')
     .map(a => a.payload as SmartDictionaryOutput);
 
-  if (dictionaryLogs.length === 0) return <p className="p-4">لا توجد سجلات في القاموس الذكي لتصديرها.</p>;
+  if (dictionaryLogs.length === 0) return <div className="p-4 text-center">لا توجد بيانات في القاموس الذكي لتصديرها.</div>;
   
   const BilingualTitle = ({ en, ar, icon, className = '' }: { en: string; ar: string; icon: React.ReactNode; className?: string }) => (
     <CardTitle className={`flex items-center gap-3 text-xl font-bold text-primary ${className}`}>
@@ -102,7 +102,7 @@ const PrintableTranslationLog = ({ activities }: { activities: ActivityLogItem[]
         .filter(a => a.tool === 'الترجمة الذكية')
         .map(a => ({ original: a.query, translation: (a.payload as { translation: string }).translation }));
 
-    if (translationLogs.length === 0) return <p className="p-4">لا توجد سجلات في الترجمة الذكية لتصديرها.</p>;
+    if (translationLogs.length === 0) return <div className="p-4 text-center">لا توجد بيانات في الترجمة الذكية لتصديرها.</div>;
 
     return (
         <div className="p-8 bg-white text-black font-body" dir="rtl">
@@ -134,7 +134,7 @@ const PrintableTeacherLog = ({ activities }: { activities: ActivityLogItem[] }) 
       .filter(a => a.tool === 'المعلم الذكي')
       .map(a => a.payload as SmartTeacherOutput);
 
-  if (teacherLogs.length === 0) return <p className="p-4">لا توجد سجلات في المعلم الذكي لتصديرها.</p>;
+  if (teacherLogs.length === 0) return <div className="p-4 text-center">لا توجد بيانات في المعلم الذكي لتصديرها.</div>;
   
   const ResultCard = ({ icon, title, children }: { icon: React.ReactNode, title: string, children: React.ReactNode }) => (
     <Card className="w-full border-gray-300 shadow-none">
@@ -204,71 +204,96 @@ const PrintableTeacherLog = ({ activities }: { activities: ActivityLogItem[] }) 
 };
 // #endregion
 
+
+type ExportType = 'dictionary' | 'translation' | 'teacher';
+
 export function ExportHub() {
   const [isOpen, setIsOpen] = useState(false);
-  const [isExporting, setIsExporting] = useState<string | null>(null);
+  const [isExporting, setIsExporting] = useState<ExportType | null>(null);
   const { toast } = useToast();
   const { activities } = useActivityLog();
 
-  const exportToPdf = async (exportType: 'dictionary' | 'translation' | 'teacher') => {
-    const printableElement = document.getElementById(`printable-${exportType}-log`);
-    if (!printableElement || printableElement.children.length === 0) {
-      toast({ title: "لا توجد بيانات للتصدير", variant: 'destructive' });
-      return;
+  const handleExportRequest = (exportType: ExportType) => {
+    // Check if there is data for the requested export type
+    const hasData = activities.some(a => a.tool === {
+        'dictionary': 'القاموس الذكي',
+        'translation': 'الترجمة الذكية',
+        'teacher': 'المعلم الذكي'
+    }[exportType]);
+
+    if (!hasData) {
+        toast({ title: `لا توجد بيانات في ${exportType === 'dictionary' ? 'القاموس' : exportType === 'translation' ? 'الترجمة' : 'المعلم'} الذكي للتصدير`, variant: 'destructive' });
+        return;
     }
-    
+
     setIsOpen(false);
     setIsExporting(exportType);
     toast({ title: 'جاري تحضير الملف للتصدير...' });
+  };
+  
+  useEffect(() => {
+    if (!isExporting) return;
 
-    // A short delay to allow the DOM to update with the printable content
-    await new Promise(resolve => setTimeout(resolve, 500));
-
-    try {
-        const canvas = await html2canvas(printableElement, {
-            scale: 2, // Higher scale for better quality
-            useCORS: true,
-            backgroundColor: '#ffffff',
-            windowWidth: printableElement.scrollWidth,
-            windowHeight: printableElement.scrollHeight,
-        });
-
-        const imgData = canvas.toDataURL('image/png');
-        const pdf = new jsPDF({
-            orientation: 'portrait',
-            unit: 'px',
-            format: 'a4'
-        });
-
-        const pdfWidth = pdf.internal.pageSize.getWidth();
-        const pdfHeight = pdf.internal.pageSize.getHeight();
-        const imgWidth = canvas.width;
-        const imgHeight = canvas.height;
-        const ratio = imgWidth / pdfWidth;
-        const scaledHeight = imgHeight / ratio;
-
-        let heightLeft = scaledHeight;
-        let position = 0;
-
-        pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, scaledHeight);
-        heightLeft -= pdfHeight;
-
-        while (heightLeft > 0) {
-            position = heightLeft - scaledHeight;
-            pdf.addPage();
-            pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, scaledHeight);
-            heightLeft -= pdfHeight;
+    const processExport = async () => {
+        const printableElement = document.getElementById(`printable-${isExporting}-log`);
+        if (!printableElement) {
+          console.error("Printable element not found!");
+          setIsExporting(null);
+          return;
         }
 
-        pdf.save(`${exportType}_sijil_${new Date().toISOString().split('T')[0]}.pdf`);
-        toast({ title: 'تم تصدير الملف بنجاح!' });
-    } catch (error) {
-        console.error("PDF Export Error:", error);
-        toast({ title: 'فشل تصدير الملف', variant: 'destructive' });
-    } finally {
-        setIsExporting(null);
-    }
-  };
+        try {
+            const canvas = await html2canvas(printableElement, {
+                scale: 2,
+                useCORS: true,
+                backgroundColor: '#ffffff',
+                windowWidth: printableElement.scrollWidth,
+                windowHeight: printableElement.scrollHeight,
+            });
+
+            const imgData = canvas.toDataURL('image/png');
+            const pdf = new jsPDF({
+                orientation: 'portrait',
+                unit: 'px',
+                format: 'a4'
+            });
+
+            const pdfWidth = pdf.internal.pageSize.getWidth();
+            const pdfHeight = pdf.internal.pageSize.getHeight();
+            const imgWidth = canvas.width;
+            const imgHeight = canvas.height;
+            const ratio = imgWidth / pdfWidth;
+            const scaledHeight = imgHeight / ratio;
+
+            let heightLeft = scaledHeight;
+            let position = 0;
+
+            pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, scaledHeight);
+            heightLeft -= pdfHeight;
+
+            while (heightLeft > 0) {
+                position = heightLeft - scaledHeight;
+                pdf.addPage();
+                pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, scaledHeight);
+                heightLeft -= pdfHeight;
+            }
+
+            pdf.save(`${isExporting}_sijil_${new Date().toISOString().split('T')[0]}.pdf`);
+            toast({ title: 'تم تصدير الملف بنجاح!' });
+        } catch (error) {
+            console.error("PDF Export Error:", error);
+            toast({ title: 'فشل تصدير الملف', variant: 'destructive' });
+        } finally {
+            setIsExporting(null);
+        }
+    };
+    
+    // A short timeout to ensure the DOM is updated before we try to capture it.
+    const timer = setTimeout(processExport, 500);
+    
+    return () => clearTimeout(timer);
+  }, [isExporting, toast]);
+
 
   const balloonClasses = "h-14 w-14 rounded-full text-primary-foreground shadow-lg flex items-center justify-center transition-all duration-300 ease-in-out transform";
 
@@ -279,7 +304,7 @@ export function ExportHub() {
            {isOpen && (
              <div className="absolute bottom-0 left-0 flex flex-col items-center gap-4 mb-20">
                 <button
-                    onClick={() => exportToPdf('teacher')}
+                    onClick={() => handleExportRequest('teacher')}
                     className={`${balloonClasses} bg-green-500 hover:bg-green-600`}
                     aria-label="تصدير سجل المعلم الذكي"
                     title="تصدير سجل المعلم الذكي"
@@ -287,7 +312,7 @@ export function ExportHub() {
                     <GraduationCap className="h-7 w-7" />
                  </button>
                  <button
-                    onClick={() => exportToPdf('translation')}
+                    onClick={() => handleExportRequest('translation')}
                     className={`${balloonClasses} bg-yellow-500 hover:bg-yellow-600 translate-y-2`}
                     aria-label="تصدير سجل الترجمة"
                     title="تصدير سجل الترجمة"
@@ -295,7 +320,7 @@ export function ExportHub() {
                     <Languages className="h-7 w-7" />
                  </button>
                  <button
-                    onClick={() => exportToPdf('dictionary')}
+                    onClick={() => handleExportRequest('dictionary')}
                     className={`${balloonClasses} bg-blue-500 hover:bg-blue-600 -translate-y-2`}
                     aria-label="تصدير سجل القاموس"
                     title="تصدير سجل القاموس"
