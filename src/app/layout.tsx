@@ -3,6 +3,7 @@ import './globals.css';
 import { Toaster } from '@/components/ui/toaster';
 import { ActivityLog } from '@/components/activity-log';
 import { ActivityLogWrapper } from '@/hooks/use-activity-log';
+import { InfoHub } from '@/components/info-hub';
 
 export const metadata: Metadata = {
   title: 'أ. أسامة العُمري',
@@ -28,6 +29,7 @@ export default function RootLayout({
       <body className="font-body antialiased">
         <ActivityLogWrapper>
           {children}
+          <InfoHub />
           <ActivityLog />
         </ActivityLogWrapper>
         <Toaster />
