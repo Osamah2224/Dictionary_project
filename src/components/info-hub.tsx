@@ -18,11 +18,24 @@ export function InfoHub() {
         setDialogContent({
           title: 'دليل استخدام التطبيق',
           content: (
-            <div className="space-y-4 text-muted-foreground text-base">
-              <p className="font-semibold text-foreground">مرحباً بك في رفيقك الذكي لتعلم الإنجليزية!</p>
-              <p><strong>القاموس الذكي:</strong> ليس مجرد قاموس عادي! أدخل أي كلمة إنجليزية أو عربية واحصل على تحليل لغوي شامل: المعنى الدقيق، نوع الكلمة، المشتقات، التصريفات، المرادفات، والأضداد. كل كلمة تبحث عنها تُحفظ تلقائياً في قاموسك المحلي للوصول السريع لاحقاً.</p>
-              <p><strong>الترجمة الذكية:</strong> ترجم النصوص بين اللغتين العربية والإنجليزية بسلاسة ودقة. يتعرف التطبيق تلقائياً على لغة الإدخال ويترجمها إلى اللغة الأخرى، مع حفظ ترجماتك للاستخدام دون اتصال بالإنترنت.</p>
-              <p><strong>المعلم الذكي:</strong> الأداة الأقوى في التطبيق! الصق أي محتوى درس باللغة الإنجليزية (نص، قطعة، قواعد) أو حتى استخرجه من صورة، واحصل على تحليل تعليمي متكامل باللغة العربية يشمل شرح القواعد، الكلمات الجديدة، المرادفات، وتمارين تفاعلية لترسيخ الفهم.</p>
+            <div className="space-y-4 text-muted-foreground text-base leading-relaxed">
+              <p className="font-semibold text-foreground text-lg mb-4">مرحباً بك في رفيقك الذكي لتعلم الإنجليزية!</p>
+              
+              <div>
+                <h3 className="font-bold text-primary mb-2">القاموس الذكي</h3>
+                <p>ليس مجرد قاموس عادي! أدخل أي كلمة (إنجليزية أو عربية) واحصل على تحليل لغوي شامل: المعنى الدقيق، نوع الكلمة، المشتقات، تصريفات الأفعال، المرادفات، والأضداد. كل كلمة تبحث عنها تُحفظ تلقائياً في "قاموسك المحلي" للوصول السريع لاحقاً.</p>
+              </div>
+
+              <div>
+                <h3 className="font-bold text-primary mb-2">الترجمة الذكية</h3>
+                <p>ترجم النصوص بين اللغتين العربية والإنجليزية بسلاسة ودقة. يتعرف التطبيق تلقائياً على لغة الإدخال ويترجمها إلى اللغة الأخرى، مع حفظ ترجماتك في "سجل النشاطات" للاستخدام والمراجعة لاحقاً.</p>
+              </div>
+
+              <div>
+                <h3 className="font-bold text-primary mb-2">المعلم الذكي</h3>
+                <p>الأداة الأقوى في التطبيق! الصق أي محتوى درس باللغة الإنجليزية (نص، قطعة، قواعد) أو حتى استخرجه من صورة، واحصل على تحليل تعليمي متكامل باللغة العربية يشمل شرح القواعد، الكلمات الجديدة، المرادفات، وتمارين تفاعلية لترسيخ الفهم.</p>
+              </div>
+
             </div>
           ),
         });
@@ -30,13 +43,13 @@ export function InfoHub() {
       case 'developer':
         setDialogContent({
           title: 'عن المطور',
-          content: <p className="text-muted-foreground text-base">تم تصميم وتطوير هذا التطبيق بواسطة الأستاذ أسامة العُمري، كأداة تعليمية مبتكرة تهدف إلى جعل تعلم اللغة الإنجليزية أكثر سهولة ومتعة للطلاب الناطقين باللغة العربية.</p>,
+          content: <p className="text-muted-foreground text-base leading-relaxed">تم تصميم وتطوير هذا التطبيق بواسطة الأستاذ أسامة العُمري، إيمانًا منه بأهمية تسخير تقنيات الذكاء الاصطناعي لإنشاء أدوات تعليمية مبتكرة تهدف إلى جعل تعلم اللغة الإنجليزية أكثر سهولة ومتعة للطلاب الناطقين باللغة العربية.</p>,
         });
         break;
       case 'contact':
         setDialogContent({
           title: 'تواصل معنا',
-          content: <p className="text-muted-foreground text-base">نسعد بتلقي ملاحظاتكم واقتراحاتكم لتطوير التطبيق. يمكنكم التواصل معنا عبر البريد الإلكتروني: contact@example.com</p>,
+          content: <p className="text-muted-foreground text-base leading-relaxed">نسعد دائمًا بتلقي ملاحظاتكم واقتراحاتكم لتطوير التطبيق. يمكنكم التواصل معنا عبر البريد الإلكتروني: <span className="font-semibold text-primary">osama.alomari.dev@example.com</span></p>,
         });
         break;
     }
@@ -49,10 +62,10 @@ export function InfoHub() {
 
   return (
     <>
-      <div className="fixed bottom-6 right-28 z-50">
+      <div className="fixed bottom-6 left-6 z-50">
         <div className="relative flex items-center justify-center">
            {isOpen && (
-             <div className="absolute bottom-0 right-0 flex flex-col items-center gap-4 mb-20">
+             <div className="absolute bottom-0 left-0 flex flex-col items-center gap-4 mb-20">
                 <button
                     onClick={() => openDialog('instructions')}
                     className={`${balloonClasses} bg-blue-500 hover:bg-blue-600 -translate-y-2`}
@@ -89,7 +102,7 @@ export function InfoHub() {
         </div>
       </div>
       
-      <Dialog open={!!dialogContent} onOpenChange={closeDialog}>
+      <Dialog open={!!dialogContent} onOpenChange={(open) => !open && closeDialog()}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle className="text-2xl">{dialogContent?.title}</DialogTitle>
